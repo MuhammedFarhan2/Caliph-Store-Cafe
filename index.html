@@ -869,6 +869,17 @@
     };
 
     let allData = JSON.parse(JSON.stringify(SEED_DATA));
+
+    function mergeLocalData() {
+      const saved = localStorage.getItem("caliph_local_data");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          allData = { ...allData, ...parsed };
+        } catch (e) {}
+      }
+    }
+    mergeLocalData();
     let currentCategory = null;
     let editingRoll = null;
     let currentUser = null;
@@ -964,6 +975,7 @@
           console.warn("Firestore save failed", e);
         }
       }
+      localStorage.setItem("caliph_local_data", JSON.stringify(allData));
       if (viewSummary.classList.contains("active")) renderSummary();
     }
 
@@ -987,6 +999,7 @@
       } catch (e) {
         console.warn("Firestore load failed, using seed data", e);
         allData = JSON.parse(JSON.stringify(SEED_DATA));
+        mergeLocalData();
         renderLeftSide();
         return false;
       }
@@ -1036,6 +1049,7 @@
         currentUser = null;
         showAuthView();
         allData = JSON.parse(JSON.stringify(SEED_DATA));
+        mergeLocalData();
         renderLeftSide();
       }
     });
