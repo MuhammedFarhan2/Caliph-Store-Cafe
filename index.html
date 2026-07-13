@@ -425,6 +425,7 @@
       if (lockInput.value === LOCK_PASS) {
         lockOverlay.classList.add("hidden");
         lockError.textContent = "";
+        lockInput.value = "";
         lockInput.blur();
       } else {
         lockError.textContent = "Wrong password";
@@ -438,6 +439,7 @@
     lockInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.stopPropagation();
+        e.preventDefault();
         unlockApp();
       }
     });
@@ -870,10 +872,13 @@
     };
 
     function loadAllData() {
-      const saved = localStorage.getItem("caliph_local_data");
-      if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
-      }
+      try {
+        const saved = localStorage.getItem("caliph_local_data");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") return parsed;
+        }
+      } catch (e) {}
       return JSON.parse(JSON.stringify(SEED_DATA));
     }
 
@@ -965,6 +970,10 @@
       return db.collection("users").doc(currentUser.uid);
     }
 
+    function persistData() {
+      try { localStorage.setItem("caliph_local_data", JSON.stringify(allData)); } catch (e) {}
+    }
+
     async function saveData() {
       if (currentUser) {
         try {
@@ -973,7 +982,7 @@
           console.warn("Firestore save failed", e);
         }
       }
-      localStorage.setItem("caliph_local_data", JSON.stringify(allData));
+      persistData();
       if (viewSummary.classList.contains("active")) renderSummary();
     }
 
@@ -1206,6 +1215,13 @@
     const studentListItems = document.getElementById("studentListItems");
 
     renderLeftSide();
+
+    // Always start in step 1 (search mode) and clear input
+    typeInput.value = "";
+    typeInput.placeholder = "Search name or roll...";
+    step2Active = true;
+    selectedStudent = null;
+    focusedIdx = 0;
 
     function renderLeftSide(filter = "") {
       const cats = ["c2b", "c2c", "c2a", "s2b", "s2a", "c1b", "c1c", "c1a", "s1b", "s1a", "juniors", "mentors", "grade8", "grade9"];
@@ -1494,7 +1510,7 @@
       }
     });
 
-    // Auto-generate once daily after 1:00 AM
+    // Auto-generate once daily after 1:01 AM
     function scheduleDailyReport() {
       const now = new Date();
       const next = new Date(now);
@@ -1503,15 +1519,18 @@
       const ms = next - now;
       setTimeout(() => {
         generateReportPDF();
+        scheduleDailyReport();
+      }, ms);
+    }
     scheduleDailyReport();
+
+    // Persist data on page close
+    window.addEventListener("beforeunload", persistData);
 
     // Register service worker for PWA
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("sw.js");
     }
-      }, ms);
-    }
-    scheduleDailyReport();
 
   </script>
 </body>
