@@ -265,7 +265,7 @@
       <div class="lock-icon">🔒</div>
       <h2>CALIPH LIFE SCHOOL</h2>
       <p>Enter password to access</p>
-      <input type="password" id="lockInput" maxlength="4" inputmode="numeric" autocomplete="off" />
+      <input type="password" id="lockInput" maxlength="4" inputmode="numeric" autocomplete="new-password" />
       <div class="lock-error" id="lockError"></div>
       <button class="lock-btn" id="lockBtn">Unlock</button>
     </div>
@@ -434,6 +434,7 @@
     }
 
     lockBtn.addEventListener("click", unlockApp);
+    lockInput.value = "";
     lockInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.stopPropagation();
