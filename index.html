@@ -219,6 +219,36 @@
     }
     .drawer-overlay.show { display: block; }
 
+    /* Lock screen */
+    .lock-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lock-overlay.hidden { display: none; }
+    .lock-box {
+      background: #fff; border-radius: 16px; padding: 36px 32px;
+      width: 90%; max-width: 340px; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .lock-box .lock-icon {
+      font-size: 48px; margin-bottom: 12px;
+    }
+    .lock-box h2 { font-size: 20px; color: #1a237e; margin-bottom: 4px; }
+    .lock-box p { font-size: 13px; color: #888; margin-bottom: 20px; }
+    .lock-box input {
+      width: 100%; padding: 14px 18px; border: 2px solid #ddd; border-radius: 10px;
+      font-size: 24px; text-align: center; outline: none; letter-spacing: 12px;
+      transition: 0.2s;
+    }
+    .lock-box input:focus { border-color: #1a237e; box-shadow: 0 0 0 4px rgba(26,35,126,0.1); }
+    .lock-box .lock-error { font-size: 12px; color: #d32f2f; margin-top: 8px; min-height: 18px; }
+    .lock-box .lock-btn {
+      margin-top: 16px; padding: 12px; width: 100%; border: none; border-radius: 10px;
+      background: #1a237e; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .lock-box .lock-btn:hover { background: #283593; }
+
     @media (max-width: 600px) {
       .main-body { flex-direction: column; }
       .left-panel { width: 100%; height: auto; max-height: 250px; border-right: none; border-bottom: 1px solid #ddd; }
@@ -229,6 +259,17 @@
   </style>
 </head>
 <body>
+  <!-- Lock Screen -->
+  <div class="lock-overlay" id="lockOverlay">
+    <div class="lock-box">
+      <div class="lock-icon">🔒</div>
+      <h2>CALIPH LIFE SCHOOL</h2>
+      <p>Enter password to access</p>
+      <input type="password" id="lockInput" maxlength="4" inputmode="numeric" autocomplete="off" />
+      <div class="lock-error" id="lockError"></div>
+      <button class="lock-btn" id="lockBtn">Unlock</button>
+    </div>
+  </div>
 
   <header class="topbar">
     <div class="brand">CALIPH <span>LIFE SCHOOL</span></div>
@@ -373,6 +414,31 @@
   </div>
 
   <script>
+    // --- App Password Lock ---
+    const LOCK_PASS = "6767";
+    const lockOverlay = document.getElementById("lockOverlay");
+    const lockInput = document.getElementById("lockInput");
+    const lockError = document.getElementById("lockError");
+    const lockBtn = document.getElementById("lockBtn");
+
+    function unlockApp() {
+      if (lockInput.value === LOCK_PASS) {
+        lockOverlay.classList.add("hidden");
+        lockError.textContent = "";
+        lockInput.blur();
+      } else {
+        lockError.textContent = "Wrong password";
+        lockInput.value = "";
+        lockInput.focus();
+      }
+    }
+
+    lockBtn.addEventListener("click", unlockApp);
+    lockInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") unlockApp();
+    });
+    lockInput.focus();
+
     // --- Firebase Config ---
     const firebaseConfig = {
       apiKey: "AIzaSyA9uu6HjKgeDwzlmvTUwzBewMcwXCmjL3A",
