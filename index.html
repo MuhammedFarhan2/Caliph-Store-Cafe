@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CALIPH LIFE SCHOOL</title>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: #f0f2f5; min-height: 100vh; }
+
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: #1a237e; color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; height: 60px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .topbar .brand { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
+    .topbar .brand span { color: #ffd54f; }
+    .topbar .account-btn {
+      width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.1); color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; transition: 0.2s;
+    }
+    .topbar .account-btn:hover { background: rgba(255,255,255,0.25); }
+
+    .main-body { margin-top: 60px; display: flex; height: calc(100vh - 60px); }
+
+    .left-panel {
+      width: 50%; background: #fff; border-right: 1px solid #ddd;
+      display: flex; flex-direction: column; overflow-y: auto; padding: 20px;
+    }
+    .student-list { margin-top: 8px; }
+    .student-item {
+      display: flex; align-items: center; padding: 10px 12px;
+      border-radius: 8px; margin-bottom: 6px; background: #f9f9f9;
+      transition: 0.2s;
+    }
+    .student-item .sroll { width: 25%; font-size: 13px; color: #555; }
+    .student-item .sname { width: 50%; text-align: left; font-weight: 600; color: #333; font-size: 14px; }
+    .student-item .samount { width: 25%; text-align: right; font-size: 13px; color: #1a237e; font-weight: 600; }
+    .student-item.focused { outline: 2px solid #1a237e; outline-offset: -2px; box-shadow: 0 0 0 3px rgba(26,35,126,0.25); }
+
+    .right-panel {
+      width: 50%; background: #fafafa;
+      display: flex; flex-direction: column; position: relative; overflow-y: auto;
+    }
+
+    .view-section { display: none; width: 100%; flex: 1; }
+    .view-section.active { display: flex; flex-direction: column; }
+
+    /* Type bar - centered in Y axis */
+    .view-default-content {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+    }
+    .view-default-content .type-bar { width: 80%; max-width: 400px; position: relative; }
+    .view-default-content .type-bar input {
+      width: 100%; padding: 14px 18px; border: 2px solid #ddd; border-radius: 10px;
+      font-size: 16px; outline: none; transition: 0.2s;
+    }
+    .view-default-content .type-bar input:focus { border-color: #1a237e; box-shadow: 0 0 0 4px rgba(26,35,126,0.1); }
+    .type-step-indicator {
+      text-align: center; font-size: 12px; color: #888; margin-top: 6px; min-height: 18px;
+    }
+
+    /* Category boxes */
+    .category-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+      padding: 30px 24px; width: 100%; max-width: 500px; margin: auto;
+    }
+    .category-box {
+      background: #fff; border: 2px solid #e0e0e0; border-radius: 10px;
+      padding: 20px 12px; text-align: center; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: #333; transition: 0.2s;
+    }
+    .category-box:hover { border-color: #1a237e; color: #1a237e; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(26,35,126,0.15); }
+
+
+    /* Data table */
+    .data-table { padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
+    .data-table .table-top {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .data-table .table-top .left { display: flex; align-items: center; gap: 10px; }
+    .data-table .table-top .left .back-btn {
+      padding: 6px 14px; background: #e8eaf6; color: #1a237e;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .data-table .table-top .left .back-btn:hover { background: #c5cae9; }
+    .data-table .table-top .table-title { font-size: 16px; font-weight: 700; color: #1a237e; }
+    .data-table .table-top .add-btn {
+      padding: 6px 16px; background: #1a237e; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .data-table .table-top .add-btn:hover { background: #283593; }
+    .data-table .table-wrap { flex: 1; overflow-y: auto; }
+    .data-table table { width: 100%; border-collapse: collapse; }
+    .data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    .data-table th { background: #1a237e; color: #fff; font-weight: 600; position: sticky; top: 0; }
+    .data-table tr:hover td { background: #f5f5f5; }
+    .data-table .empty { text-align: center; padding: 40px; color: #888; }
+    .data-table .del-btn {
+      padding: 4px 10px; background: #e53935; color: #fff;
+      border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+    }
+    .data-table .del-btn:hover { background: #c62828; }
+
+    /* Summary view */
+    .summary-wrap { padding: 20px 24px; flex: 1; display: flex; flex-direction: column; }
+    .summary-top {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .summary-top .left { display: flex; align-items: center; gap: 10px; }
+    .summary-title { font-size: 18px; font-weight: 700; color: #1a237e; }
+    .summary-table-wrap { flex: 1; overflow-y: auto; }
+    .summary-table { width: 100%; border-collapse: collapse; }
+    .summary-table th, .summary-table td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
+    .summary-table th { background: #1a237e; color: #fff; font-weight: 600; position: sticky; top: 0; }
+    .summary-table tr:hover td { background: #f5f5f5; }
+    .summary-table .total-row td { font-weight: 700; color: #1a237e; font-size: 15px; border-top: 2px solid #1a237e; }
+
+    /* Add member modal */
+    .add-modal-overlay {
+      position: fixed; inset: 0; z-index: 3000;
+      background: rgba(0,0,0,0.5); display: none;
+      align-items: center; justify-content: center;
+    }
+    .add-modal-overlay.show { display: flex; }
+    .add-modal {
+      background: #fff; border-radius: 12px; padding: 28px;
+      width: 90%; max-width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .add-modal h3 { margin-bottom: 16px; color: #1a237e; }
+    .add-modal label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #333; }
+    .add-modal input {
+      width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 14px; margin-bottom: 12px; outline: none;
+    }
+    .add-modal input:focus { border-color: #1a237e; }
+    .add-modal .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .add-modal .modal-actions button {
+      flex: 1; padding: 9px; border: none; border-radius: 6px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .add-modal .modal-actions .save-btn { background: #1a237e; color: #fff; }
+    .add-modal .modal-actions .save-btn:hover { background: #283593; }
+    .add-modal .modal-actions .cancel-btn { background: #e0e0e0; color: #333; }
+    .add-modal .modal-actions .cancel-btn:hover { background: #bdbdbd; }
+
+      /* Account Drawer (1/4) */
+    .account-drawer {
+      position: fixed; top: 60px; right: 0; width: 25vw; height: calc(100% - 60px);
+      background: #fff; border-left: 1px solid #ddd;
+      transform: translateX(100%); transition: transform 0.3s ease;
+      display: flex; flex-direction: column; padding: 20px 16px;
+      box-shadow: -4px 0 12px rgba(0,0,0,0.1); z-index: 100;
+    }
+    .account-drawer.open { transform: translateX(0); }
+    .account-drawer h3 { font-size: 14px; color: #555; margin-bottom: 16px; }
+    .account-drawer .drawer-btn {
+      width: 100%; padding: 10px 0; border: none; background: none;
+      text-align: left; font-size: 14px; color: #333; cursor: pointer;
+      border-bottom: 1px solid #eee; transition: 0.2s;
+    }
+    .account-drawer .drawer-btn:hover { color: #1a237e; padding-left: 4px; }
+    .account-drawer .drawer-btn.logout { color: #d32f2f; font-weight: 600; }
+    .drawer-auth input {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 13px; outline: none; margin-bottom: 8px;
+    }
+    .drawer-auth input:focus { border-color: #1a237e; }
+    .drawer-auth .auth-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+    .drawer-auth .auth-actions button {
+      flex: 1; padding: 7px; border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .drawer-auth .auth-actions .btn-primary { background: #1a237e; color: #fff; }
+    .drawer-auth .auth-actions .btn-primary:hover { background: #283593; }
+    .drawer-auth .auth-actions .btn-secondary { background: #e0e0e0; color: #333; }
+    .drawer-auth .auth-actions .btn-secondary:hover { background: #bdbdbd; }
+    .drawer-auth .auth-toggle { font-size: 12px; color: #1a237e; cursor: pointer; text-align: center; }
+    .drawer-auth .auth-toggle:hover { text-decoration: underline; }
+    .drawer-auth .auth-msg { font-size: 12px; color: #d32f2f; margin-top: 4px; text-align: center; }
+    .drawer-auth .auth-msg.success { color: #2e7d32; }
+    .drawer-user { font-size: 13px; color: #1a237e; font-weight: 600; margin-bottom: 12px; word-break: break-all; }
+    .drawer-menu, .drawer-route-section { display: block; }
+    .drawer-route-section input {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+      font-size: 13px; outline: none; margin-bottom: 6px;
+    }
+    .drawer-route-section input:focus { border-color: #1a237e; }
+    .drawer-route-section .route-actions { display: flex; gap: 6px; }
+    .drawer-route-section .route-actions button {
+      flex: 1; padding: 6px; border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .drawer-route-section .route-actions .save-route-btn { background: #1a237e; color: #fff; }
+    .drawer-route-section .route-actions .save-route-btn:hover { background: #283593; }
+    .drawer-route-section .route-actions .cancel-route-btn { background: #e0e0e0; color: #333; }
+    .drawer-route-section .route-actions .cancel-route-btn:hover { background: #bdbdbd; }
+    .saved-route-info {
+      font-size: 12px; color: #1a237e; margin-top: 8px; padding: 6px 8px;
+      background: #e8eaf6; border-radius: 6px; display: none; word-break: break-all;
+    }
+    .saved-route-info.show { display: block; }
+
+    .drawer-overlay {
+      position: fixed; inset: 0; background: transparent; z-index: 99;
+      display: none;
+    }
+    .drawer-overlay.show { display: block; }
+
+    @media (max-width: 600px) {
+      .main-body { flex-direction: column; }
+      .left-panel { width: 100%; height: auto; max-height: 250px; border-right: none; border-bottom: 1px solid #ddd; }
+      .right-panel { width: 100%; min-height: 300px; }
+      .account-drawer { width: 40vw; }
+      .category-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">CALIPH <span>LIFE SCHOOL</span></div>
+    <button class="account-btn" id="accountBtn" title="Account" aria-label="Open customer account">
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" style="fill:#fff">
+        <circle cx="17.5" cy="6.5" r="2.0" fill="#fff"/>
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="#fff"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="main-body" id="mainBody">
+
+    <!-- LEFT PANEL -->
+    <aside class="left-panel">
+      <div class="student-list">
+        <div id="studentListItems"></div>
+      </div>
+    </aside>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel" id="rightPanel">
+
+      <!-- Default: type bar centered Y -->
+      <div class="view-section" id="viewDefault">
+        <div class="view-default-content">
+          <div class="type-bar">
+            <input type="text" id="typeInput" placeholder="Search name or roll..." autofocus />
+            <div class="type-step-indicator" id="stepIndicator">Step 1/2: Search for a student</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category boxes -->
+      <div class="view-section" id="viewCategories">
+        <div class="category-grid">
+          <div class="category-box" data-category="c2b">C2B</div>
+          <div class="category-box" data-category="c2c">C2C</div>
+          <div class="category-box" data-category="c2a">C2A</div>
+          <div class="category-box" data-category="s2b">S2B</div>
+          <div class="category-box" data-category="s2a">S2A</div>
+          <div class="category-box" data-category="c1b">C1B</div>
+          <div class="category-box" data-category="c1c">C1C</div>
+          <div class="category-box" data-category="c1a">C1A</div>
+          <div class="category-box" data-category="s1b">S1B</div>
+          <div class="category-box" data-category="s1a">S1A</div>
+          <div class="category-box" data-category="grade8">Grade 8</div>
+          <div class="category-box" data-category="grade9">Grade 9</div>
+        </div>
+      </div>
+
+      <!-- Mentors data -->
+      <div class="view-section" id="viewMentors">
+        <div class="data-table">
+          <div class="table-top">
+            <div class="table-title">Mentors</div>
+            <button class="add-btn" onclick="openAddModal('mentors')">+ Add Members</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Roll No</th><th>Name</th><th>Amount</th></tr></thead>
+              <tbody id="mentorsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data table for category -->
+      <div class="view-section" id="viewData">
+        <div class="data-table">
+          <div class="table-top">
+            <div class="left">
+              <button class="back-btn" id="backToCategories">&larr; Back</button>
+              <div class="table-title" id="tableTitle">C2B</div>
+            </div>
+            <button class="add-btn" id="addMemberBtn">+ Add Members</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Roll No</th><th>Name</th><th>Amount</th></tr></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary View -->
+      <div class="view-section" id="viewSummary">
+        <div class="summary-wrap">
+          <div class="summary-top">
+            <div class="left">
+              <button class="back-btn" id="backFromSummary">&larr; Back</button>
+              <div class="summary-title">Fee Summary</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="summaryRouteInput" placeholder="Route name" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none" />
+              <button class="add-btn" id="saveRouteFromSummary" style="padding:6px 14px">Save</button>
+            </div>
+          </div>
+          <div class="summary-table-wrap">
+            <table class="summary-table">
+              <thead><tr><th>Class</th><th style="text-align:right">Total Amount</th></tr></thead>
+              <tbody id="summaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-overlay" id="drawerOverlay"></div>
+      <div class="account-drawer" id="accountDrawer">
+        <h3>Account</h3>
+        <!-- Logged out view -->
+        <div class="drawer-auth" id="authView">
+          <input type="email" id="authEmail" placeholder="Email" />
+          <input type="password" id="authPassword" placeholder="Password" />
+          <div class="auth-actions">
+            <button class="btn-primary" id="authSignInBtn">Sign In</button>
+            <button class="btn-secondary" id="authSignUpBtn">Sign Up</button>
+          </div>
+          <div class="auth-msg" id="authMsg"></div>
+        </div>
+        <!-- Logged in view -->
+        <div class="drawer-menu" id="userView" style="display:none">
+          <div class="drawer-user" id="userEmail"></div>
+          <button class="drawer-btn" id="setRouteBtnMenu">Set Route</button>
+          <button class="drawer-btn logout" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Member Modal -->
+  <div class="add-modal-overlay" id="addModal">
+    <div class="add-modal">
+      <h3 id="addModalTitle">Add Member</h3>
+      <label for="addRoll">Roll No</label>
+      <input type="text" id="addRoll" placeholder="e.g. C2B04" />
+      <label for="addName">Name</label>
+      <input type="text" id="addName" placeholder="Full name" />
+      <label for="addAmount">Amount</label>
+      <input type="number" id="addAmount" placeholder="0.00" step="0.01" />
+      <div class="modal-actions">
+        <button class="cancel-btn" id="cancelAdd">Cancel</button>
+        <button class="save-btn" id="saveAdd">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Firebase Config ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9uu6HjKgeDwzlmvTUwzBewMcwXCmjL3A",
+      authDomain: "caliph-life-school-credit.firebaseapp.com",
+      databaseURL: "https://caliph-life-school-credit-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "caliph-life-school-credit",
+      storageBucket: "caliph-life-school-credit.firebasestorage.app",
+      messagingSenderId: "170665756582",
+      appId: "1:170665756582:web:a26ce3a68f24a80845b167"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // --- Seed data for new users ---
+    const SEED_DATA = {
+      c2b: [
+  { roll: "1", name: "ABDUNNOOR P", amount: 0 },
+  { roll: "2", name: "AMAAN MOHAMMED RAFHEEK", amount: 0 },
+  { roll: "3", name: "FADL AHMED ZULFIQAR ALI", amount: 0 },
+  { roll: "4", name: "JAUHAR SHAN", amount: 0 },
+  { roll: "5", name: "MOHAMMED IRFAN", amount: 0 },
+  { roll: "6", name: "MOHAMMED YOUSUF VM", amount: 0 },
+  { roll: "7", name: "MUFTHI MUHAMMED K", amount: 0 },
+  { roll: "8", name: "MUHAMMAD HAMDAN", amount: 0 },
+  { roll: "9", name: "MUHAMMAD SINAN K", amount: 0 },
+  { roll: "10", name: "MUHAMMED CP", amount: 0 },
+  { roll: "11", name: "MUHAMMED FADHI RN", amount: 0 },
+  { roll: "12", name: "MUHAMMED FARHAN", amount: 0 },
+  { roll: "13", name: "MUHAMMED ISMAIL", amount: 0 },
+  { roll: "14", name: "MUHAMMED JASIL", amount: 0 },
+  { roll: "15", name: "MUHAMMED JASWIN KP", amount: 0 },
+  { roll: "16", name: "MUHAMMED JISAL", amount: 0 },
+  { roll: "17", name: "MUHAMMED K", amount: 0 },
+  { roll: "18", name: "MUHAMMED MUHSIN K", amount: 0 },
+  { roll: "19", name: "MUHAMMED NAZAL CHAKKALAN KUNNATH", amount: 0 },
+  { roll: "20", name: "MUHAMMED P", amount: 0 },
+  { roll: "21", name: "MUHAMMED RASHID T", amount: 0 },
+  { roll: "22", name: "MUHAMMED SAHEER", amount: 0 },
+  { roll: "23", name: "MUHAMMED SHAHRAN", amount: 0 },
+  { roll: "24", name: "MUHAMMED SINAN K", amount: 0 },
+  { roll: "25", name: "MUHAMMED SINAN KT", amount: 0 },
+  { roll: "26", name: "MUHAMMED SINAN M", amount: 0 },
+  { roll: "27", name: "MUHAMMED SINAN VK", amount: 0 },
+  { roll: "28", name: "MUHAMMED SUFIYAN K", amount: 0 },
+  { roll: "29", name: "NAHYAN ABDULLA", amount: 0 },
+  { roll: "30", name: "RAZI MUHAMMED VF", amount: 0 },
+  { roll: "31", name: "SYED RAAHIL", amount: 0 }
+],
+      c2c: [
+  { roll: "1", name: "ABDULLA KASSIM KURUNGOT", amount: 0 },
+  { roll: "2", name: "AFHAM SHAHEER NELLIKKA", amount: 0 },
+  { roll: "3", name: "AHAMMED YASEEN BIN SHABEER", amount: 0 },
+  { roll: "4", name: "ASHIQ ABDULLA", amount: 0 },
+  { roll: "5", name: "ATHIF THUFAIL N", amount: 0 },
+  { roll: "6", name: "AZAH OMAR", amount: 0 },
+  { roll: "7", name: "AZEEM AHAMMED YOGI MADATHIL", amount: 0 },
+  { roll: "8", name: "HAROON ASLAM", amount: 0 },
+  { roll: "9", name: "K MUHAMMED FADHIL", amount: 0 },
+  { roll: "10", name: "MAIZ MUHAMMED", amount: 0 },
+  { roll: "11", name: "MINHAJ", amount: 0 },
+  { roll: "12", name: "MIOHAMMED ISSAM PN", amount: 0 },
+  { roll: "13", name: "MOHAMED HADI NAZAL TP", amount: 0 },
+  { roll: "14", name: "MOHAMMAD ZABIN SHAMSEER", amount: 0 },
+  { roll: "15", name: "MOHAMMED AMEEN PK", amount: 0 },
+  { roll: "16", name: "MUAD CK", amount: 0 },
+  { roll: "17", name: "MUHAMMAD MINHAJ PC", amount: 0 },
+  { roll: "18", name: "MUHAMMED AMAN VK", amount: 0 },
+  { roll: "19", name: "MUHAMMED AMEN TK", amount: 0 },
+  { roll: "20", name: "MUHAMMED FIZAN KM", amount: 0 },
+  { roll: "21", name: "MUHAMMED MUHSIN", amount: 0 },
+  { roll: "22", name: "MUHAMMED NASH TT", amount: 0 },
+  { roll: "23", name: "MUHAMMED NAZAL V", amount: 0 },
+  { roll: "24", name: "MUHAMMED RASHID", amount: 0 },
+  { roll: "25", name: "MUHAMMED RAZIL P", amount: 0 },
+  { roll: "26", name: "MUHAMMED SAFWAN MM", amount: 0 },
+  { roll: "27", name: "MUHAMMED UNAIS T", amount: 0 },
+  { roll: "28", name: "RAYAAN MUHAMMED", amount: 0 },
+  { roll: "29", name: "SAVAD MUHAMMED", amount: 0 },
+  { roll: "30", name: "SHAMMAS ASHRAF", amount: 0 },
+  { roll: "31", name: "UMMAR SHAIKHALI", amount: 0 },
+  { roll: "32", name: "ZAHI ABOOBACKER VENGAT", amount: 0 }
+],
+      s2b: [
+  { roll: "1", name: "ALI SHAMIL P", amount: 0 },
+  { roll: "2", name: "DHILHAQ HASSAN MP", amount: 0 },
+  { roll: "3", name: "HATHIM ZAMAN NABEEL", amount: 0 },
+  { roll: "4", name: "IHAN INTHIKAF VALIYA MAPPLILAKAM", amount: 0 },
+  { roll: "5", name: "IHSAN ABDULLA MUHAMMAD", amount: 0 },
+  { roll: "6", name: "LABEEB NOUSHAD", amount: 0 },
+  { roll: "7", name: "MAHDI MUHAMMED NP", amount: 0 },
+  { roll: "8", name: "MOHAMMED AFIL P", amount: 0 },
+  { roll: "9", name: "MOHAMMED IMRAN", amount: 0 },
+  { roll: "10", name: "MOHAMMED IZAN DARVISH", amount: 0 },
+  { roll: "11", name: "MUHAMMAD HANAN ANZAR", amount: 0 },
+  { roll: "12", name: "MUHAMMED AMEEN P.V", amount: 0 },
+  { roll: "13", name: "MUHAMMED HAMID TK", amount: 0 },
+  { roll: "14", name: "MUHAMMED MINHAJ K", amount: 0 },
+  { roll: "15", name: "MUHAMMED SAHAL T", amount: 0 },
+  { roll: "16", name: "MUHAMMED SHAFEEQUE", amount: 0 },
+  { roll: "17", name: "MUHAMMED SWALAH KP", amount: 0 },
+  { roll: "18", name: "REYHAN ANEES MALBARIE", amount: 0 },
+  { roll: "19", name: "SHAHAN SHABEEB", amount: 0 },
+  { roll: "20", name: "SHAHIR O", amount: 0 }
+],
+      c1b: [
+  { roll: "1", name: "ABDUL HADHI K.S", amount: 0 },
+  { roll: "2", name: "ABDULLAH WAIZ.N.P", amount: 0 },
+  { roll: "3", name: "AHAMMAD SHADIL", amount: 0 },
+  { roll: "4", name: "AHMAD MUNEER", amount: 0 },
+  { roll: "5", name: "ALI MIYANE", amount: 0 },
+  { roll: "6", name: "AMAN ABDULLA KT", amount: 0 },
+  { roll: "7", name: "AMAN MANGALAT", amount: 0 },
+  { roll: "8", name: "AYAZ JABIR S", amount: 0 },
+  { roll: "9", name: "AYAZ MUHAMMED", amount: 0 },
+  { roll: "10", name: "FAAZ MUHAMMAD P S", amount: 0 },
+  { roll: "11", name: "FAHEEM MOHAMMED MOHAMMED SHAFI", amount: 0 },
+  { roll: "12", name: "FAID SANEEN", amount: 0 },
+  { roll: "13", name: "HAROON SAMI VEZHAPPILLY", amount: 0 },
+  { roll: "14", name: "HIZAN BIN MUHAMMED AFTHAB", amount: 0 },
+  { roll: "15", name: "HUMAYL MOHAMMAD", amount: 0 },
+  { roll: "16", name: "IJLAN THOTTUNGAL", amount: 0 },
+  { roll: "17", name: "IMRAN K", amount: 0 },
+  { roll: "18", name: "JAZEEM HANEEFA", amount: 0 },
+  { roll: "19", name: "MOHAMMED HANEEN N.H", amount: 0 },
+  { roll: "20", name: "MUADDAB KODAMBI ABDUL JALEEL", amount: 0 },
+  { roll: "21", name: "MUHAMMED AMAN TP", amount: 0 },
+  { roll: "22", name: "MUHAMMED FAAZ KP", amount: 0 },
+  { roll: "23", name: "MUHAMMED FADHIL", amount: 0 },
+  { roll: "24", name: "MUHAMMED HADIN FARHAN", amount: 0 },
+  { roll: "25", name: "MUHAMMED HAMMAZ", amount: 0 },
+  { roll: "26", name: "MUHAMMED HANAN MATTAI", amount: 0 },
+  { roll: "27", name: "MUHAMMED HAZEEN M", amount: 0 },
+  { roll: "28", name: "MUHAMMED NIHAL BARIKKAL", amount: 0 },
+  { roll: "29", name: "MUHAMMED RASEEM V", amount: 0 },
+  { roll: "30", name: "MUHAMMED SAVAD M", amount: 0 },
+  { roll: "31", name: "MUHAMMED SIDHAN V P", amount: 0 },
+  { roll: "32", name: "MUHAMMED YASEEN M P", amount: 0 },
+  { roll: "33", name: "MUHAMMED YOUNUS. P", amount: 0 },
+  { roll: "34", name: "RADIN T", amount: 0 },
+  { roll: "35", name: "RAFAN MOHAMMED", amount: 0 },
+  { roll: "36", name: "SHAMMAS ASLAM", amount: 0 },
+  { roll: "37", name: "SHAZIN NAUSHAD", amount: 0 },
+  { roll: "38", name: "SHEZIN HAMDAN", amount: 0 },
+  { roll: "39", name: "SIDAN HASSAN P S", amount: 0 }
+],
+      c1c: [
+  { roll: "1", name: "ABDUL SAMAD CA", amount: 0 },
+  { roll: "2", name: "ADHIL HANAN M", amount: 0 },
+  { roll: "3", name: "AMIN RIHAN", amount: 0 },
+  { roll: "4", name: "AZAAN MAHWISH ASHRAF", amount: 0 },
+  { roll: "5", name: "AZMI MUHAMMED ASLAM", amount: 0 },
+  { roll: "6", name: "FADHI ANWER BASHEER", amount: 0 },
+  { roll: "7", name: "FAVAS M", amount: 0 },
+  { roll: "8", name: "HADHI MP", amount: 0 },
+  { roll: "9", name: "HANIN AHMMED FIZIN", amount: 0 },
+  { roll: "10", name: "LUQMANUL HAKEEM", amount: 0 },
+  { roll: "11", name: "MOHAMMED", amount: 0 },
+  { roll: "12", name: "MOHAMMED EASA", amount: 0 },
+  { roll: "13", name: "MOHAMMED MUJTHABA", amount: 0 },
+  { roll: "14", name: "MUHAMMAD MUNAZIR", amount: 0 },
+  { roll: "15", name: "MUHAMMAD YASEEN", amount: 0 },
+  { roll: "16", name: "MUHAMMED ABAAN.V", amount: 0 },
+  { roll: "17", name: "MUHAMMED AFLAH", amount: 0 },
+  { roll: "18", name: "MUHAMMED AMAN P", amount: 0 },
+  { roll: "19", name: "MUHAMMED AMEEN AL ASHFAQ THENANGAL", amount: 0 },
+  { roll: "20", name: "MUHAMMED ATHIF A S", amount: 0 },
+  { roll: "21", name: "MUHAMMED FAAZ BIN FAISAL", amount: 0 },
+  { roll: "22", name: "MUHAMMED HADHI", amount: 0 },
+  { roll: "23", name: "MUHAMMED HASHIM PUTHIYOTHIL", amount: 0 },
+  { roll: "24", name: "MUHAMMED MISHAL", amount: 0 },
+  { roll: "25", name: "MUHAMMED MURSHID", amount: 0 },
+  { roll: "26", name: "MUHAMMED NADUVILOTHI", amount: 0 },
+  { roll: "27", name: "MUHAMMED RAFAN M", amount: 0 },
+  { roll: "28", name: "MUHAMMED RASAL", amount: 0 },
+  { roll: "29", name: "MUHAMMED RASIL MP", amount: 0 },
+  { roll: "30", name: "MUHAMMED RIYAN KOOVAN VALAPPIL", amount: 0 },
+  { roll: "31", name: "RAMIN MUHAMMED ASHRAF", amount: 0 },
+  { roll: "32", name: "REHAN MOHAMMED SAHIR", amount: 0 },
+  { roll: "33", name: "REZIN MUHAMMED RIYAS", amount: 0 },
+  { roll: "34", name: "SAHL ABDULLAH", amount: 0 },
+  { roll: "35", name: "SHAZIN HUSSAIN", amount: 0 },
+  { roll: "36", name: "ZAINUL ABIDHIN. M", amount: 0 },
+  { roll: "37", name: "ZUNNOON", amount: 0 }
+],
+      s1b: [
+  { roll: "1", name: "ABDULHADHI S.S", amount: 0 },
+  { roll: "2", name: "ABDULLA MUZAMMIL", amount: 0 },
+  { roll: "3", name: "ADEEB SULAIMAN", amount: 0 },
+  { roll: "4", name: "AHAMMED MAJID", amount: 0 },
+  { roll: "5", name: "AHAMMED SAHL SAJID", amount: 0 },
+  { roll: "6", name: "AHLAN K", amount: 0 },
+  { roll: "7", name: "AHMED WAFIN K", amount: 0 },
+  { roll: "8", name: "ALAN BACKER KP", amount: 0 },
+  { roll: "9", name: "AMAN EHSAN", amount: 0 },
+  { roll: "10", name: "AMAN USMAN", amount: 0 },
+  { roll: "11", name: "AYAAN MOHAMMAD NAYEEM", amount: 0 },
+  { roll: "12", name: "FAAZ MUHAMMAD", amount: 0 },
+  { roll: "13", name: "FAHZAN SHERIF", amount: 0 },
+  { roll: "14", name: "HAANI MUAAD", amount: 0 },
+  { roll: "15", name: "HADI MUHAMMAD", amount: 0 },
+  { roll: "16", name: "HADI MUHAMMED E P", amount: 0 },
+  { roll: "17", name: "HAROON RASHEED", amount: 0 },
+  { roll: "18", name: "HASHIN EH", amount: 0 },
+  { roll: "19", name: "MOHAMMED AJMAL", amount: 0 },
+  { roll: "20", name: "MOHAMMED FADI KT", amount: 0 },
+  { roll: "21", name: "MOHAMMED NIHAL KP", amount: 0 },
+  { roll: "22", name: "MUHAMMED ATHIQ", amount: 0 },
+  { roll: "23", name: "MUHAMMED ESHAN P", amount: 0 },
+  { roll: "24", name: "MUHAMMED FAIHAN FIROZ", amount: 0 },
+  { roll: "25", name: "MUHAMMED MISBAH", amount: 0 },
+  { roll: "26", name: "MUHAMMED MUJTHABA", amount: 0 },
+  { roll: "27", name: "MUHAMMED NIHAD K", amount: 0 },
+  { roll: "28", name: "MUHAMMED NIHAL PB", amount: 0 },
+  { roll: "29", name: "MUHAMMED SHAMMAS KM", amount: 0 },
+  { roll: "30", name: "MUHAMMED SHEZIN SADIKH", amount: 0 },
+  { roll: "31", name: "MUHAMMED UNAIS", amount: 0 },
+  { roll: "32", name: "MUHAMMED YASEEN V", amount: 0 },
+  { roll: "33", name: "NAZIH ALI MOHAMED M", amount: 0 },
+  { roll: "34", name: "RAZIN MUHAMMED", amount: 0 },
+  { roll: "35", name: "RISWAN M", amount: 0 },
+  { roll: "36", name: "RIZAN MUHAMMED", amount: 0 },
+  { roll: "37", name: "SAHIL MOHAMMED SAHEER", amount: 0 },
+  { roll: "38", name: "SHABIL ASHRAF M K", amount: 0 },
+  { roll: "39", name: "YAHYA IBNU NOUFEL", amount: 0 }
+],
+      juniors: [],
+      mentors: [
+  { roll: "1", name: "RAHNA CP", amount: 0 },
+  { roll: "2", name: "SAJIDATH BEEVI", amount: 0 },
+  { roll: "3", name: "HENASREE", amount: 0 },
+  { roll: "4", name: "MUBASHIRA", amount: 0 },
+  { roll: "5", name: "FIDA KV", amount: 0 },
+  { roll: "6", name: "JAMSHEER ALI", amount: 0 },
+  { roll: "7", name: "ABDUL ANSHAD", amount: 0 },
+  { roll: "8", name: "DHILSHA T A", amount: 0 },
+  { roll: "9", name: "FIDA SAFARY", amount: 0 },
+  { roll: "10", name: "ANEES FAYAS", amount: 0 },
+  { roll: "11", name: "AHMED MUBASSIR", amount: 0 },
+  { roll: "12", name: "FATHIMA ZUHRA", amount: 0 },
+  { roll: "13", name: "FIDHA RISHANA", amount: 0 },
+  { roll: "14", name: "NABEELURAHMAN", amount: 0 },
+  { roll: "15", name: "SINAN SAQAFI", amount: 0 },
+  { roll: "16", name: "SAIFUDHEEN", amount: 0 },
+  { roll: "17", name: "AYISHA HANEENA", amount: 0 },
+  { roll: "18", name: "ABDUL BASHID", amount: 0 },
+  { roll: "19", name: "MOHAMMED SWABEEH K", amount: 0 },
+  { roll: "20", name: "MANSOOR SAQAFI", amount: 0 },
+  { roll: "21", name: "MUHAMMED HAFIZ", amount: 0 },
+  { roll: "22", name: "BINYAMIN SAQAFI", amount: 0 },
+  { roll: "23", name: "Anas Saqafi", amount: 0 },
+  { roll: "24", name: "MOHAMMED MURSID K", amount: 0 },
+  { roll: "25", name: "Jabir Saqafii", amount: 0 },
+  { roll: "26", name: "MOHAMMED HARSHAD", amount: 0 },
+  { roll: "27", name: "Hamraz", amount: 0 },
+  { roll: "28", name: "Aysha Fida", amount: 0 },
+  { roll: "29", name: "Syed Mishal", amount: 0 },
+  { roll: "30", name: "Hasanath Panachikkal", amount: 0 },
+  { roll: "31", name: "Ajmila", amount: 0 },
+  { roll: "32", name: "Shahna Sherin", amount: 0 },
+  { roll: "33", name: "Amjad Wafa", amount: 0 },
+  { roll: "34", name: "Faisal Zaini", amount: 0 },
+  { roll: "35", name: "Security", amount: 0 },
+  { roll: "36", name: "Nida Jabeen", amount: 0 },
+  { roll: "37", name: "Fathima Hiba", amount: 0 },
+  { roll: "38", name: "Jamshid K T", amount: 0 },
+  { roll: "39", name: "Mohammed Iyas", amount: 0 },
+  { roll: "40", name: "Favaz P C", amount: 0 },
+  { roll: "41", name: "Dilsha Parveen A K", amount: 0 },
+  { roll: "42", name: "Safa M T", amount: 0 },
+  { roll: "43", name: "Asla CP", amount: 0 },
+  { roll: "44", name: "Unais Edarath", amount: 0 },
+  { roll: "45", name: "Shafeeq Shameem", amount: 0 },
+  { roll: "46", name: "Binyameen C", amount: 0 },
+  { roll: "47", name: "Muhammed Faiz", amount: 0 },
+  { roll: "48", name: "Mess", amount: 0 },
+  { roll: "49", name: "Paint", amount: 0 },
+  { roll: "50", name: "Union", amount: 0 },
+  { roll: "51", name: "Batch SC10", amount: 0 },
+  { roll: "52", name: "Batch SC11", amount: 0 },
+  { roll: "53", name: "Swalih", amount: 0 },
+  { roll: "54", name: "Javad", amount: 0 },
+  { roll: "55", name: "Yaseen (Driver)", amount: 0 },
+  { roll: "56", name: "Mufeed Sir", amount: 0 },
+  { roll: "57", name: "Management", amount: 0 }
+],
+      s2a: [
+  { roll: "1", name: "AADHILA SULTHANA TS", amount: 0 },
+  { roll: "2", name: "ADHILA FATHIMA BV", amount: 0 },
+  { roll: "3", name: "AIDHA PONMANICHINTAKATH", amount: 0 },
+  { roll: "4", name: "FADIYA", amount: 0 },
+  { roll: "5", name: "FATHIMA MUFLIHA", amount: 0 },
+  { roll: "6", name: "FATHIMA NILUFER", amount: 0 },
+  { roll: "7", name: "FATHIMATHU SAFWA", amount: 0 },
+  { roll: "8", name: "FETHIN RAHMAN V", amount: 0 },
+  { roll: "9", name: "HANIYA HARIS", amount: 0 },
+  { roll: "10", name: "JUNAH MEHARIN BENT KUNHAMMED", amount: 0 },
+  { roll: "11", name: "MA-EDA DARJHA", amount: 0 },
+  { roll: "12", name: "MINHA FATHIMA", amount: 0 },
+  { roll: "13", name: "MINHA FATHIMA O.M", amount: 0 },
+  { roll: "14", name: "MINHA FATHIMA VT", amount: 0 },
+  { roll: "15", name: "NAJA FATHIMA P", amount: 0 },
+  { roll: "16", name: "NUHA FATHIMA S", amount: 0 },
+  { roll: "17", name: "RIYA FATHIMA PM", amount: 0 },
+  { roll: "18", name: "SANA FATHIMA VK", amount: 0 },
+  { roll: "19", name: "SARAH THOTTATHIL", amount: 0 },
+  { roll: "20", name: "SHANIBA KHALID", amount: 0 },
+  { roll: "21", name: "ZARA MARIYAM", amount: 0 },
+  { roll: "22", name: "ZAREEN SHIBAS", amount: 0 }
+],
+      c2a: [
+  { roll: "1", name: "AINA FATHIMA EK", amount: 0 },
+  { roll: "2", name: "AYSHA ZAYANA VP", amount: 0 },
+  { roll: "3", name: "FATHIMA MINHA PUTHUKKUDY", amount: 0 },
+  { roll: "4", name: "FATHIMA ZOYA", amount: 0 },
+  { roll: "5", name: "FATHIMASANA MV", amount: 0 },
+  { roll: "6", name: "HALA SHAMSEER NK", amount: 0 },
+  { roll: "7", name: "HANA FATHIMA KM", amount: 0 },
+  { roll: "8", name: "HANANA ABRAR", amount: 0 },
+  { roll: "9", name: "HANIYA P.K", amount: 0 },
+  { roll: "10", name: "IFRA THAHANI D", amount: 0 },
+  { roll: "11", name: "KADEEJA MISBA", amount: 0 },
+  { roll: "12", name: "KHADEEJA AMNA", amount: 0 },
+  { roll: "13", name: "KHADEEJA PT", amount: 0 },
+  { roll: "14", name: "MANHA NASEER ALI", amount: 0 },
+  { roll: "15", name: "MINHA P", amount: 0 },
+  { roll: "16", name: "NAFEESA FELLAH", amount: 0 },
+  { roll: "17", name: "NISHMA KARVEL", amount: 0 },
+  { roll: "18", name: "NITHA FATHIMA", amount: 0 },
+  { roll: "19", name: "RIDHA ADIL PULIYALI", amount: 0 },
+  { roll: "20", name: "RIFA FATHIMA", amount: 0 },
+  { roll: "21", name: "RIFA FATHIMA P", amount: 0 },
+  { roll: "22", name: "RUBIYA S", amount: 0 },
+  { roll: "23", name: "SHAZA MUHAMMEDALI", amount: 0 },
+  { roll: "24", name: "SIDRA FATHIMA", amount: 0 },
+  { roll: "25", name: "UMMU HABEEBA M", amount: 0 },
+  { roll: "26", name: "ZAIMA ZAKIR", amount: 0 }
+],
+      s1a: [
+  { roll: "1", name: "ALEENA KP", amount: 0 },
+  { roll: "2", name: "AYISHA LAMIA MK", amount: 0 },
+  { roll: "3", name: "AYISHA LAYINA OP", amount: 0 },
+  { roll: "4", name: "AYISHA WAFA NOUSHAD", amount: 0 },
+  { roll: "5", name: "FATHIMA SHAIKHA M", amount: 0 },
+  { roll: "6", name: "FATHIN M", amount: 0 },
+  { roll: "7", name: "FIDHA FAKRUDHEEN", amount: 0 },
+  { roll: "8", name: "HAWVA SHAHEEL", amount: 0 },
+  { roll: "9", name: "HEZA AYSHA", amount: 0 },
+  { roll: "10", name: "HIBA FATHIMA", amount: 0 },
+  { roll: "11", name: "IZA MARIYAM A", amount: 0 },
+  { roll: "12", name: "MANHA HASHIM", amount: 0 },
+  { roll: "13", name: "MINHA SHEHBIN TK", amount: 0 },
+  { roll: "14", name: "NAHA FILZ CF", amount: 0 },
+  { roll: "15", name: "NAIZA FATHIMA C", amount: 0 },
+  { roll: "16", name: "RIYA FATHIMA", amount: 0 },
+  { roll: "17", name: "RIYA FATHIMA P", amount: 0 },
+  { roll: "18", name: "SHAZA V N", amount: 0 },
+  { roll: "19", name: "SULAIKHA SULFIKAR", amount: 0 },
+  { roll: "20", name: "THOIBA FATHIMA", amount: 0 },
+  { roll: "21", name: "ZABA FATHIMA M", amount: 0 }
+],
+      c1a: [
+  { roll: "1", name: "AALIYA MARIYAM", amount: 0 },
+  { roll: "2", name: "AISHA HADIYAH", amount: 0 },
+  { roll: "3", name: "ALFINA PARVEEN", amount: 0 },
+  { roll: "4", name: "AMINA AM", amount: 0 },
+  { roll: "5", name: "AMINA DIYA TK", amount: 0 },
+  { roll: "6", name: "ASBIN JAHAN E", amount: 0 },
+  { roll: "7", name: "AYISHA HANNA", amount: 0 },
+  { roll: "8", name: "AYISHA HANOONA KP", amount: 0 },
+  { roll: "9", name: "AYISHA ISMA", amount: 0 },
+  { roll: "10", name: "AYISHA LIYANA BINSHAD P", amount: 0 },
+  { roll: "11", name: "AYISHA MINHA MK", amount: 0 },
+  { roll: "12", name: "FATHIMA AFSHEEN KARI", amount: 0 },
+  { roll: "13", name: "FATHIMA BY", amount: 0 },
+  { roll: "14", name: "FATHIMA MUSTAFA", amount: 0 },
+  { roll: "15", name: "FATHIMA NIHLA RASHID", amount: 0 },
+  { roll: "16", name: "FATHIMA RANA", amount: 0 },
+  { roll: "17", name: "FELLAH NOUFAL", amount: 0 },
+  { roll: "18", name: "HANNA SAEED", amount: 0 },
+  { roll: "19", name: "HESSA FATHIMA KVK", amount: 0 },
+  { roll: "20", name: "HIBA FATHIMA TV", amount: 0 },
+  { roll: "21", name: "INSHAH FATHIMA", amount: 0 },
+  { roll: "22", name: "ISHA KK", amount: 0 },
+  { roll: "23", name: "KHADEEJA ABDUL LATHIEF", amount: 0 },
+  { roll: "24", name: "KHADEEJATHUL SHAHARBAN BEEVI", amount: 0 },
+  { roll: "25", name: "LAMHA NIYAZ", amount: 0 },
+  { roll: "26", name: "NAILA SHIHAB", amount: 0 },
+  { roll: "27", name: "NASHWA ZAINAB", amount: 0 },
+  { roll: "28", name: "NIYA FATHIMA MP", amount: 0 },
+  { roll: "29", name: "SIBA FATHIMA", amount: 0 }
+],
+      grade8: [
+  { roll: "1", name: "AMAL RAHMAN M.P", amount: 0 },
+  { roll: "2", name: "AZIN .E", amount: 0 },
+  { roll: "3", name: "FAZAL AHMED M", amount: 0 },
+  { roll: "4", name: "FEMIL MUHAMMED T", amount: 0 },
+  { roll: "5", name: "HAFIZ MUHAMMAD K", amount: 0 },
+  { roll: "6", name: "MIDLAJ T P", amount: 0 },
+  { roll: "7", name: "MISBAH ABDULLAH SAFIYA ABDULLAKUTTY", amount: 0 },
+  { roll: "8", name: "MOHAMMED AZEEM V", amount: 0 },
+  { roll: "9", name: "MUHAMMAD AMEEN IBRAHIM", amount: 0 },
+  { roll: "10", name: "MUHAMMED MUBARIZ CK", amount: 0 },
+  { roll: "11", name: "NITHASH ALI M", amount: 0 },
+  { roll: "12", name: "NOUMAN ALI", amount: 0 },
+  { roll: "13", name: "SHAFIN MUHAMMED SHAMSUDDHEEN", amount: 0 },
+  { roll: "14", name: "TA ALI ZAKWAN", amount: 0 }
+],
+      grade9: [
+  { roll: "1", name: "AAMIR BIN USMAN KEELATH", amount: 0 },
+  { roll: "2", name: "ABDUL FATHAHFIROS", amount: 0 },
+  { roll: "3", name: "ABDULLA BIN FAISAL", amount: 0 },
+  { roll: "4", name: "HAFI YOOSUF A T", amount: 0 },
+  { roll: "5", name: "HIFAZ BIN MUHAMMED AFTHAB", amount: 0 },
+  { roll: "6", name: "IMAN MUHAMMAD P T", amount: 0 },
+  { roll: "7", name: "MOHAMMEDSWALIH", amount: 0 },
+  { roll: "8", name: "MOHAMMED HISHAM", amount: 0 },
+  { roll: "9", name: "MOHAMMED RAZI K", amount: 0 },
+  { roll: "10", name: "MOHAMMED SAJAD", amount: 0 },
+  { roll: "11", name: "MOHAMMED YAMIN ANSARI M A", amount: 0 },
+  { roll: "12", name: "MOHAMMED ZAYAN.C", amount: 0 },
+  { roll: "13", name: "NAASHITH ALI C K", amount: 0 },
+  { roll: "14", name: "YAZAN MUHAMMED", amount: 0 }
+],
+    };
+
+    let allData = JSON.parse(JSON.stringify(SEED_DATA));
+    let currentCategory = null;
+    let editingRoll = null;
+    let currentUser = null;
+
+    const accountBtn = document.getElementById("accountBtn");
+    const mainBody = document.getElementById("mainBody");
+    const accountDrawer = document.getElementById("accountDrawer");
+    const drawerOverlay = document.getElementById("drawerOverlay");
+
+    const viewDefault = document.getElementById("viewDefault");
+    const viewCategories = document.getElementById("viewCategories");
+    const viewMentors = document.getElementById("viewMentors");
+    const viewData = document.getElementById("viewData");
+    const viewSummary = document.getElementById("viewSummary");
+    const tableBody = document.getElementById("tableBody");
+    const mentorsBody = document.getElementById("mentorsBody");
+    const tableTitle = document.getElementById("tableTitle");
+    const backBtn = document.getElementById("backToCategories");
+    const addMemberBtn = document.getElementById("addMemberBtn");
+    const categoryBoxes = document.querySelectorAll(".category-box");
+    const addModal = document.getElementById("addModal");
+    const addModalTitle = document.getElementById("addModalTitle");
+    const addRoll = document.getElementById("addRoll");
+    const addName = document.getElementById("addName");
+    const addAmount = document.getElementById("addAmount");
+    const saveAdd = document.getElementById("saveAdd");
+    const cancelAdd = document.getElementById("cancelAdd");
+
+    // Auth UI elements
+    const authView = document.getElementById("authView");
+    const userView = document.getElementById("userView");
+    const userEmail = document.getElementById("userEmail");
+    const authEmail = document.getElementById("authEmail");
+    const authPassword = document.getElementById("authPassword");
+    const authMsg = document.getElementById("authMsg");
+    const authSignInBtn = document.getElementById("authSignInBtn");
+    const authSignUpBtn = document.getElementById("authSignUpBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const setRouteBtnMenu = document.getElementById("setRouteBtnMenu");
+    const summaryBody = document.getElementById("summaryBody");
+    const backFromSummary = document.getElementById("backFromSummary");
+    const summaryRouteInput = document.getElementById("summaryRouteInput");
+    const saveRouteFromSummary = document.getElementById("saveRouteFromSummary");
+
+    const viewHistory = [];
+    let viewLock = false;
+
+    function showView(id, pushState = true) {
+      if (viewLock) return;
+      if (pushState && id !== viewHistory[viewHistory.length - 1]) {
+        viewHistory.push(id);
+        history.pushState({ view: id }, "");
+      }
+      document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    function goBackView() {
+      if (viewHistory.length < 2) return;
+      viewLock = true;
+      viewHistory.pop();
+      const prev = viewHistory[viewHistory.length - 1];
+      document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+      document.getElementById(prev).classList.add("active");
+      viewLock = false;
+    }
+
+    window.addEventListener("popstate", (e) => {
+      if (e.state && e.state.view) {
+        if (viewHistory.length > 1 && viewHistory[viewHistory.length - 1] !== e.state.view) {
+          viewHistory.pop();
+        }
+        document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+        document.getElementById(e.state.view).classList.add("active");
+      }
+    });
+
+    function initializeNavigation() {
+      viewHistory.length = 0;
+      viewHistory.push("viewDefault");
+      history.replaceState({ view: "viewDefault" }, "");
+    }
+
+    // --- Firestore data functions ---
+    function getUserDocRef() {
+      if (!currentUser) return null;
+      return db.collection("users").doc(currentUser.uid);
+    }
+
+    async function saveData() {
+      if (currentUser) {
+        try {
+          await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
+        } catch (e) {
+          console.warn("Firestore save failed", e);
+        }
+      }
+      if (viewSummary.classList.contains("active")) renderSummary();
+    }
+
+    async function loadUserData(uid) {
+      try {
+        const doc = await db.collection("users").doc(uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          const { routeName, ...rest } = data;
+          allData = { ...SEED_DATA, ...rest };
+          if (routeName) saveRouteName(routeName);
+          renderLeftSide();
+          if (viewSummary.classList.contains("active")) renderSummary();
+          return true;
+        } else {
+          // First login — seed data
+          allData = JSON.parse(JSON.stringify(SEED_DATA));
+          await db.collection("users").doc(uid).set(allData);
+          return true;
+        }
+      } catch (e) {
+        console.warn("Firestore load failed, using seed data", e);
+        allData = JSON.parse(JSON.stringify(SEED_DATA));
+        renderLeftSide();
+        return false;
+      }
+    }
+
+    // --- Route storage ---
+    const ROUTE_KEY = "caliph_route_name";
+
+    function loadRouteName() {
+      return localStorage.getItem(ROUTE_KEY) || "";
+    }
+
+    function saveRouteName(name) {
+      localStorage.setItem(ROUTE_KEY, name);
+    }
+
+    // --- Auth UI ---
+    function showAuthView() {
+      authView.style.display = "block";
+      userView.style.display = "none";
+      authMsg.textContent = "";
+    }
+
+    function showUserView(email) {
+      authView.style.display = "none";
+      userView.style.display = "block";
+      userEmail.textContent = email;
+    }
+
+    function setAuthMsg(msg, isSuccess) {
+      authMsg.textContent = msg;
+      authMsg.className = "auth-msg" + (isSuccess ? " success" : "");
+    }
+
+    // --- Auth State Listener ---
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        showUserView(user.email);
+        await loadUserData(user.uid);
+        // Re-render current view if needed
+        if (currentCategory) {
+          if (currentCategory === "mentors") renderMentors();
+          else renderData(currentCategory);
+        }
+      } else {
+        currentUser = null;
+        showAuthView();
+        allData = JSON.parse(JSON.stringify(SEED_DATA));
+        renderLeftSide();
+      }
+    });
+
+    // --- Auth Actions ---
+    authSignInBtn.addEventListener("click", async () => {
+      const email = authEmail.value.trim();
+      const pass = authPassword.value.trim();
+      if (!email || !pass) { setAuthMsg("Enter email and password"); return; }
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        setAuthMsg("Signed in!", true);
+        drawerOverlay.click();
+      } catch (e) {
+        setAuthMsg(e.message);
+      }
+    });
+
+    authSignUpBtn.addEventListener("click", async () => {
+      const email = authEmail.value.trim();
+      const pass = authPassword.value.trim();
+      if (!email || !pass) { setAuthMsg("Enter email and password"); return; }
+      if (pass.length < 6) { setAuthMsg("Password must be 6+ characters"); return; }
+      try {
+        await auth.createUserWithEmailAndPassword(email, pass);
+        setAuthMsg("Account created!", true);
+        drawerOverlay.click();
+      } catch (e) {
+        setAuthMsg(e.message);
+      }
+    });
+
+    // Allow Enter key on auth inputs
+    [authEmail, authPassword].forEach(el => {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") authSignInBtn.click();
+      });
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      await auth.signOut();
+      drawerOverlay.click();
+    });
+
+    // --- Set Route opens Summary ---
+    setRouteBtnMenu.addEventListener("click", () => {
+      drawerOverlay.click();
+      summaryRouteInput.value = loadRouteName();
+      renderSummary();
+      showView("viewSummary");
+    });
+
+    backFromSummary.addEventListener("click", () => {
+      showView("viewDefault");
+    });
+
+    saveRouteFromSummary.addEventListener("click", async () => {
+      const name = summaryRouteInput.value.trim();
+      if (name) saveRouteName(name);
+      if (currentUser) {
+        try {
+          await getUserDocRef().update({ routeName: name || "" });
+        } catch {}
+      }
+    });
+
+    summaryRouteInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") saveRouteFromSummary.click();
+    });
+
+    function renderSummary() {
+      const cats = ["c2b", "c2c", "c2a", "s2b", "s2a", "c1b", "c1c", "c1a", "s1b", "s1a", "juniors", "mentors", "grade8", "grade9"];
+      const labs = ["C2B", "C2C", "C2A", "S2B", "S2A", "C1B", "C1C", "C1A", "S1B", "S1A", "Juniors", "Mentors", "Grade 8", "Grade 9"];
+      let total = 0;
+      let html = "";
+      for (let i = 0; i < cats.length; i++) {
+        const data = allData[cats[i]] || [];
+        const catTotal = data.reduce((sum, r) => sum + r.amount, 0);
+        total += catTotal;
+        html += `<tr><td>${labs[i]}</td><td style="text-align:right;color:#1a237e;font-weight:600">${catTotal.toFixed(2)}</td></tr>`;
+      }
+      html += `<tr class="total-row"><td>Total</td><td style="text-align:right">${total.toFixed(2)}</td></tr>`;
+      summaryBody.innerHTML = html;
+    }
+
+    // --- Drawer toggle ---
+    accountBtn.addEventListener("click", () => {
+      accountDrawer.classList.toggle("open");
+      drawerOverlay.classList.toggle("show");
+    });
+
+    drawerOverlay.addEventListener("click", () => {
+      accountDrawer.classList.remove("open");
+      drawerOverlay.classList.remove("show");
+    });
+
+    function renderData(category) {
+      currentCategory = category;
+      const data = allData[category] || [];
+      tableTitle.textContent = categoryLabels[category] || category.toUpperCase();
+      addMemberBtn.onclick = () => openAddModal(category);
+      if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="3" class="empty">No data available</td></tr>`;
+      } else {
+        tableBody.innerHTML = data.map((row) =>
+          `<tr>
+            <td>${row.roll}</td>
+            <td>${row.name}</td>
+            <td>${row.amount.toFixed(2)}</td>
+          </tr>`
+        ).join("");
+      }
+      renderLeftSide();
+      showView("viewData");
+    }
+
+    function renderMentors() {
+      currentCategory = "mentors";
+      const data = allData.mentors || [];
+      if (data.length === 0) {
+        mentorsBody.innerHTML = `<tr><td colspan="3" class="empty">No data available</td></tr>`;
+      } else {
+        mentorsBody.innerHTML = data.map((row) =>
+          `<tr>
+            <td>${row.roll}</td>
+            <td>${row.name}</td>
+            <td>${row.amount.toFixed(2)}</td>
+          </tr>`
+        ).join("");
+      }
+      renderLeftSide();
+    }
+
+    function openAddModal(category) {
+      currentCategory = category;
+      editingRoll = null;
+      addModalTitle.textContent = "Add Member - " + category.toUpperCase();
+      addRoll.value = "";
+      addName.value = "";
+      addAmount.value = "";
+      addModal.classList.add("show");
+    }
+
+    cancelAdd.addEventListener("click", () => {
+      addModal.classList.remove("show");
+    });
+
+    saveAdd.addEventListener("click", () => {
+      const roll = addRoll.value.trim();
+      const name = addName.value.trim();
+      const amount = parseFloat(addAmount.value);
+      if (!roll || !name || isNaN(amount)) {
+        alert("Please fill all fields correctly.");
+        return;
+      }
+      if (!allData[currentCategory]) allData[currentCategory] = [];
+      allData[currentCategory].push({ roll, name, amount });
+      saveData();
+      addModal.classList.remove("show");
+      if (currentCategory === "mentors") renderMentors();
+      else renderData(currentCategory);
+    });
+
+    initializeNavigation();
+    showView("viewDefault", false);
+
+    // Type bar: 2 steps — search/pick student then enter amount
+    let step2Active = true;
+    let selectedStudent = null;
+    let focusedIdx = -1;
+    const typeInput = document.getElementById("typeInput");
+    const stepIndicator = document.getElementById("stepIndicator");
+    const studentListItems = document.getElementById("studentListItems");
+
+    renderLeftSide();
+
+    function renderLeftSide(filter = "") {
+      const cats = ["c2b", "c2c", "c2a", "s2b", "s2a", "c1b", "c1c", "c1a", "s1b", "s1a", "juniors", "mentors", "grade8", "grade9"];
+      const labs = ["C2B", "C2C", "C2A", "S2B", "S2A", "C1B", "C1C", "C1A", "S1B", "S1A", "Juniors", "Mentors", "Grade 8", "Grade 9"];
+      const f = filter.toLowerCase();
+      let html = "";
+      let hasAny = false;
+      for (let i = 0; i < cats.length; i++) {
+        const data = allData[cats[i]] || [];
+        let filtered = data;
+        if (f) {
+          filtered = data.filter(r => r.name.toLowerCase().includes(f) || r.roll.toLowerCase().includes(f));
+        }
+        if (filtered.length === 0) continue;
+        hasAny = true;
+        html += `<div style="font-size:12px;font-weight:700;color:#1a237e;padding:8px 12px 2px">${labs[i]}</div>`;
+        filtered.forEach((r, idx) => {
+          const globalIdx = allData[cats[i]].indexOf(r);
+          html += `<div class="student-item" data-cat="${cats[i]}" data-idx="${globalIdx}" style="cursor:pointer">`;
+          html += `<span class="sroll">${r.roll}</span><span class="sname">${r.name}</span><span class="samount">${r.amount.toFixed(2)}</span>`;
+          html += `</div>`;
+        });
+      }
+
+      if (!hasAny) {
+        studentListItems.innerHTML = '<div style="padding:10px 12px;color:#888;font-size:13px">No entries yet. Add data using the type bar.</div>';
+      } else {
+        studentListItems.innerHTML = html;
+      }
+      if (step2Active) {
+        const items = getVisibleItems();
+        if (focusedIdx < 0 || focusedIdx >= items.length) focusedIdx = 0;
+        if (items.length > 0) updateFocus();
+      }
+    }
+
+    function getVisibleItems() {
+      return studentListItems.querySelectorAll(".student-item");
+    }
+
+    function updateFocus() {
+      const items = getVisibleItems();
+      items.forEach((el, i) => {
+        el.classList.toggle("focused", i === focusedIdx);
+      });
+      if (focusedIdx >= 0 && focusedIdx < items.length) {
+        items[focusedIdx].scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+
+    studentListItems.addEventListener("click", (e) => {
+      const item = e.target.closest(".student-item");
+      if (!item || !step2Active) return;
+      const cat = item.dataset.cat;
+      const idx = parseInt(item.dataset.idx);
+      const person = allData[cat][idx];
+      if (!person) return;
+      selectedStudent = { cat, idx };
+      step2Active = false;
+      focusedIdx = -1;
+      typeInput.value = "";
+      typeInput.placeholder = "Enter amount for " + person.name + "...";
+      stepIndicator.textContent = "Step 2/2: Enter amount, then press Enter";
+      renderLeftSide();
+      typeInput.focus();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (!step2Active) return;
+      const items = getVisibleItems();
+      if (items.length === 0) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusedIdx = Math.min(focusedIdx + 1, items.length - 1);
+        updateFocus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        focusedIdx = Math.max(focusedIdx - 1, 0);
+        updateFocus();
+      } else if (e.key === "Enter") {
+        if (focusedIdx >= 0 && focusedIdx < items.length) {
+          e.preventDefault();
+          items[focusedIdx].click();
+        }
+      }
+    });
+
+    typeInput.addEventListener("input", () => {
+      if (step2Active) {
+        renderLeftSide(typeInput.value.trim());
+      }
+    });
+
+    typeInput.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const val = typeInput.value.trim();
+      if (!val) return;
+
+      if (!step2Active && selectedStudent) {
+        if (!/^-?\d+(\.\d{1,2})?$/.test(val)) {
+          stepIndicator.textContent = "Enter a valid number (amount)";
+          return;
+        }
+        e.stopPropagation();
+        const { cat, idx } = selectedStudent;
+        const person = allData[cat][idx];
+        if (!person) return;
+        const amount = parseFloat(val);
+        person.amount += amount;
+        saveData();
+        if (currentCategory === cat) renderData(cat);
+        selectedStudent = null;
+        step2Active = true;
+        typeInput.value = "";
+        typeInput.placeholder = "Search name or roll...";
+        const action = val.startsWith("-") ? "subtracted" : "added";
+        const absVal = Math.abs(amount).toFixed(2);
+        stepIndicator.textContent = `${absVal} ${action}! Enter next amount or search again`;
+        renderLeftSide();
+        setTimeout(() => {
+          if (step2Active) stepIndicator.textContent = "Step 1/2: Search for a student";
+        }, 1500);
+      }
+    });
+
+
+    function handleBack() {
+      if (viewHistory.length > 1) {
+        history.back();
+      }
+    }
+
+    categoryBoxes.forEach(box => {
+      box.addEventListener("click", () => {
+        renderData(box.dataset.category);
+      });
+    });
+
+    backBtn.addEventListener("click", handleBack);
+
+    // --- PDF School Fee Report ---
+    const categoryLabels = {
+      c2b: "C2B", c2c: "C2C", c2a: "C2A", s2b: "S2B", s2a: "S2A",
+      c1b: "C1B", c1c: "C1C", c1a: "C1A", s1b: "S1B", s1a: "S1A",
+      juniors: "Juniors", mentors: "Mentors",
+      grade8: "Grade 8", grade9: "Grade 9"
+    };
+    const categoryOrder = ["c2b", "c2c", "c2a", "s2b", "s2a", "c1b", "c1c", "c1a", "s1b", "s1a", "juniors", "mentors", "grade8", "grade9"];
+
+    function generateReportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: "portrait", unit: "px", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 28;
+      const contentW = pageW - margin * 2;
+
+      // Estimate total height needed
+      function estimateTotalHeight() {
+        let h = 66;
+        for (const key of categoryOrder) {
+          const data = allData[key] || [];
+          h += 16; // section heading
+          h += 20; // table header
+          h += data.length * 18; // rows
+          h += 10; // gap after section
+        }
+        return h;
+      }
+
+      let rowH = 18;
+      let headingGap = 16;
+      let headerH = 16;
+      let sectionGap = 10;
+      let fontSize = 8.5;
+      let headerFontSize = 8.5;
+
+      // Auto-compress if content overflows
+      let estimated = estimateTotalHeight();
+      if (estimated > pageH - 12) {
+        const ratio = (pageH - 12) / estimated;
+        rowH = Math.max(14, Math.round(rowH * ratio));
+        headingGap = Math.max(10, Math.round(headingGap * ratio));
+        headerH = Math.max(13, Math.round(headerH * ratio));
+        sectionGap = Math.max(6, Math.round(sectionGap * ratio));
+        fontSize = Math.max(6.5, +(fontSize * ratio).toFixed(1));
+        headerFontSize = Math.max(7, +(headerFontSize * ratio).toFixed(1));
+      }
+
+      // Title (drawn once after compression config)
+      const titleSize = fontSize + 7;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(titleSize);
+      doc.setTextColor(30, 42, 138);
+      doc.text("CALIPH LIFE SCHOOL", pageW / 2, 36, { align: "center" });
+
+      let yPos = 56;
+
+      // Helper: draw a section table
+      function drawSection(catKey) {
+        const data = allData[catKey] || [];
+        const label = categoryLabels[catKey] || catKey.toUpperCase();
+
+        // Section heading
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(fontSize + 2);
+        doc.setTextColor(30, 42, 138);
+        doc.text(label, margin, yPos);
+        yPos += headingGap;
+
+        // Table header
+        const colX = [margin, margin + contentW * 0.35, margin + contentW * 0.7];
+        const colW = [contentW * 0.35, contentW * 0.35, contentW * 0.3];
+
+        // Header background
+        doc.setFillColor(30, 42, 138);
+        doc.roundedRect(margin, yPos - headerH + 4, contentW, headerH, 3, 3, "F");
+
+        // Header text Y offset from top of header rect
+        const headerTextY = yPos - headerH + 4 + headerH / 2 + 3;
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(headerFontSize);
+        doc.text("Roll No", colX[0] + 10, headerTextY);
+        doc.text("Name", colX[1] + 10, headerTextY);
+        doc.text("Amount", colX[2] + colW[2] - 10, headerTextY, { align: "right" });
+
+        yPos += headerH;
+
+        // Rows
+        for (let i = 0; i < data.length; i++) {
+          const r = data[i];
+          const isEven = i % 2 === 0;
+          if (isEven) {
+            doc.setFillColor(255, 255, 255);
+          } else {
+            doc.setFillColor(245, 246, 250);
+          }
+          doc.rect(margin, yPos - rowH + 4, contentW, rowH, "F");
+
+          doc.setDrawColor(220, 220, 220);
+          doc.line(margin, yPos + 4, margin + contentW, yPos + 4);
+
+          const rowTextY = yPos - rowH / 2 + 3;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(fontSize);
+          doc.setTextColor(50, 50, 50);
+
+          doc.text(r.roll, colX[0] + 10, rowTextY);
+          doc.text(r.name, colX[1] + 10, rowTextY);
+
+          doc.setTextColor(30, 42, 138);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${r.amount.toFixed(2)}`, colX[2] + colW[2] - 10, rowTextY, { align: "right" });
+
+          yPos += rowH;
+        }
+
+        yPos += sectionGap;
+      }
+
+      for (const key of categoryOrder) {
+        drawSection(key);
+      }
+
+      // Footer
+      const now = new Date();
+      const dateStr = `${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()}`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Generated: ${dateStr}`, pageW / 2, pageH - 14, { align: "center" });
+
+      const routeName = loadRouteName();
+      const prefix = routeName ? routeName.replace(/[^a-zA-Z0-9_-]/g, "_") + "_" : "";
+      doc.save(`${prefix}CALIPH_REPORT_${dateStr.replace(/\//g, "_")}.pdf`);
+    }
+
+    // Ctrl+Y generates PDF report
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "y") {
+        e.preventDefault();
+        generateReportPDF();
+      }
+    });
+
+    // Auto-generate once daily after 1:00 AM
+    function scheduleDailyReport() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(1, 1, 0, 0);
+      if (now >= next) next.setDate(next.getDate() + 1);
+      const ms = next - now;
+      setTimeout(() => {
+        generateReportPDF();
+        scheduleDailyReport();
+      }, ms);
+    }
+    scheduleDailyReport();
+
+  </script>
+</body>
+</html>
