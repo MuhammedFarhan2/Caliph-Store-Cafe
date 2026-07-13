@@ -868,18 +868,15 @@
 ],
     };
 
-    let allData = JSON.parse(JSON.stringify(SEED_DATA));
-
-    function mergeLocalData() {
+    function loadAllData() {
       const saved = localStorage.getItem("caliph_local_data");
       if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          allData = { ...allData, ...parsed };
-        } catch (e) {}
+        try { return JSON.parse(saved); } catch (e) {}
       }
+      return JSON.parse(JSON.stringify(SEED_DATA));
     }
-    mergeLocalData();
+
+    let allData = loadAllData();
     let currentCategory = null;
     let editingRoll = null;
     let currentUser = null;
@@ -998,8 +995,7 @@
         }
       } catch (e) {
         console.warn("Firestore load failed, using seed data", e);
-        allData = JSON.parse(JSON.stringify(SEED_DATA));
-        mergeLocalData();
+        allData = loadAllData();
         renderLeftSide();
         return false;
       }
@@ -1048,8 +1044,7 @@
       } else {
         currentUser = null;
         showAuthView();
-        allData = JSON.parse(JSON.stringify(SEED_DATA));
-        mergeLocalData();
+        allData = loadAllData();
         renderLeftSide();
       }
     });
