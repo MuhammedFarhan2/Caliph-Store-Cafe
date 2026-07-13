@@ -318,11 +318,7 @@
           <div class="summary-top">
             <div class="left">
               <button class="back-btn" id="backFromSummary">&larr; Back</button>
-              <div class="summary-title">Fee Summary</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input type="text" id="summaryRouteInput" placeholder="Route name" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none" />
-              <button class="add-btn" id="saveRouteFromSummary" style="padding:6px 14px">Save</button>
+              <div class="summary-title">Total Summary</div>
             </div>
           </div>
           <div class="summary-table-wrap">
@@ -349,7 +345,7 @@
         <!-- Logged in view -->
         <div class="drawer-menu" id="userView" style="display:none">
           <div class="drawer-user" id="userEmail"></div>
-          <button class="drawer-btn" id="setRouteBtnMenu">Set Route</button>
+          <button class="drawer-btn" id="setRouteBtnMenu">Total</button>
           <button class="drawer-btn logout" id="logoutBtn">Logout</button>
         </div>
       </div>
@@ -842,8 +838,6 @@
     const setRouteBtnMenu = document.getElementById("setRouteBtnMenu");
     const summaryBody = document.getElementById("summaryBody");
     const backFromSummary = document.getElementById("backFromSummary");
-    const summaryRouteInput = document.getElementById("summaryRouteInput");
-    const saveRouteFromSummary = document.getElementById("saveRouteFromSummary");
 
     const viewHistory = [];
     let viewLock = false;
@@ -1017,27 +1011,12 @@
     // --- Set Route opens Summary ---
     setRouteBtnMenu.addEventListener("click", () => {
       drawerOverlay.click();
-      summaryRouteInput.value = loadRouteName();
       renderSummary();
       showView("viewSummary");
     });
 
     backFromSummary.addEventListener("click", () => {
       showView("viewDefault");
-    });
-
-    saveRouteFromSummary.addEventListener("click", async () => {
-      const name = summaryRouteInput.value.trim();
-      if (name) saveRouteName(name);
-      if (currentUser) {
-        try {
-          await getUserDocRef().update({ routeName: name || "" });
-        } catch {}
-      }
-    });
-
-    summaryRouteInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") saveRouteFromSummary.click();
     });
 
     function renderSummary() {
