@@ -1,0 +1,22 @@
+{
+  "name": "Caliph Life School",
+  "short_name": "Caliph School",
+  "description": "School fee management system",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1a237e",
+  "theme_color": "#1a237e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231a237e'%3E%3Ccircle cx='12' cy='12' r='12' fill='%231a237e'/%3E%3Ctext x='12' y='16' text-anchor='middle' font-size='14' fill='white'%3EC%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231a237e'%3E%3Ccircle cx='12' cy='12' r='12' fill='%231a237e'/%3E%3Ctext x='12' y='16' text-anchor='middle' font-size='14' fill='white'%3EC%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
