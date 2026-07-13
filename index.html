@@ -435,7 +435,10 @@
 
     lockBtn.addEventListener("click", unlockApp);
     lockInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") unlockApp();
+      if (e.key === "Enter") {
+        e.stopPropagation();
+        unlockApp();
+      }
     });
     lockInput.focus();
 
