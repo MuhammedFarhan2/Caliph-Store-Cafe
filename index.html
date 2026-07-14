@@ -441,11 +441,14 @@
     lockInput.focus();
 
     // Auto-skip lock screen if already unlocked this session
-    if (sessionStorage.getItem("caliph_unlocked")) {
-      lockOverlay.classList.add("hidden");
-      const ti = document.getElementById("typeInput");
-      if (ti) ti.focus();
-    }
+    (function() {
+      try {
+        if (sessionStorage.getItem("caliph_unlocked") === "1") {
+          lockOverlay.classList.add("hidden");
+          document.getElementById("typeInput")?.focus();
+        }
+      } catch(e) {}
+    })();
       }
     }
 
