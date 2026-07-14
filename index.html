@@ -1310,6 +1310,11 @@
         if (focusedIdx < 0 || focusedIdx >= items.length) focusedIdx = 0;
         if (items.length > 0) updateFocus();
       }
+      // Auto-scroll to first visible category when filtering
+      if (f) {
+        const firstHeader = studentListItems.querySelector("div");
+        if (firstHeader) firstHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
 
     function getVisibleItems() {
