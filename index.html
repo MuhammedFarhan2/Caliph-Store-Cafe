@@ -1005,15 +1005,11 @@
               const localData = JSON.parse(localRaw);
               if (localData && typeof localData === "object") {
                 allData = { ...allData, ...localData };
+                // Push localStorage data to Firestore directly
+                await getUserDocRef().set({ ...localData, routeName: loadRouteName() }, { merge: true });
               }
             }
           } catch (e) {}
-          // Always push merged data to Firestore to sync all devices
-          try {
-            await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
-          } catch (e) {
-            console.warn("Firestore sync failed", e);
-          }
           if (routeName) saveRouteName(routeName);
           renderLeftSide();
           if (viewSummary.classList.contains("active")) renderSummary();
@@ -1123,15 +1119,22 @@
     document.getElementById("syncBtn").addEventListener("click", async () => {
       if (!currentUser) return;
       drawerOverlay.click();
+      const localRaw = localStorage.getItem("caliph_local_data");
+      if (!localRaw) { stepIndicator.textContent = "No local data found to sync"; return; }
       try {
-        await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
-        stepIndicator.textContent = "Synced to cloud!";
+        const localData = JSON.parse(localRaw);
+        let totalStudents = 0;
+        for (const key of Object.keys(localData)) {
+          if (Array.isArray(localData[key])) totalStudents += localData[key].length;
+        }
+        await getUserDocRef().set({ ...localData, routeName: loadRouteName() }, { merge: true });
+        stepIndicator.textContent = `Synced ${totalStudents} students to cloud!`;
       } catch (e) {
         stepIndicator.textContent = "Sync failed — check Firestore rules";
       }
       setTimeout(() => {
         if (step2Active) stepIndicator.textContent = "Step 1/2: Search for a student";
-      }, 2000);
+      }, 3000);
     });
 
     // --- Set Route opens Summary ---
