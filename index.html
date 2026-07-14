@@ -1430,6 +1430,16 @@
         const cat = box.dataset.category;
         if (cat === "mentors") renderMentors();
         else renderData(cat);
+        // Scroll left panel to this category
+        setTimeout(() => {
+          const headers = document.querySelectorAll("#studentListItems > div");
+          for (const h of headers) {
+            if (h.textContent.trim().toLowerCase() === categoryLabels[cat]?.toLowerCase() || h.textContent.trim().toLowerCase() === cat) {
+              h.scrollIntoView({ behavior: "smooth", block: "start" });
+              break;
+            }
+          }
+        }, 50);
       });
     });
 
