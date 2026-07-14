@@ -318,6 +318,8 @@
           <div class="category-box" data-category="s1a">S1A</div>
           <div class="category-box" data-category="grade8">Grade 8</div>
           <div class="category-box" data-category="grade9">Grade 9</div>
+          <div class="category-box" data-category="juniors">Juniors</div>
+          <div class="category-box" data-category="mentors">Mentors</div>
         </div>
       </div>
 
@@ -1398,7 +1400,9 @@
 
     categoryBoxes.forEach(box => {
       box.addEventListener("click", () => {
-        renderData(box.dataset.category);
+        const cat = box.dataset.category;
+        if (cat === "mentors") renderMentors();
+        else renderData(cat);
       });
     });
 
