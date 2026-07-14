@@ -432,12 +432,20 @@
         lockError.textContent = "";
         lockInput.value = "";
         lockInput.blur();
+        sessionStorage.setItem("caliph_unlocked", "1");
         const ti = document.getElementById("typeInput");
         if (ti) ti.focus();
       } else {
         lockError.textContent = "Wrong password";
         lockInput.value = "";
-        lockInput.focus();
+    lockInput.focus();
+
+    // Auto-skip lock screen if already unlocked this session
+    if (sessionStorage.getItem("caliph_unlocked")) {
+      lockOverlay.classList.add("hidden");
+      const ti = document.getElementById("typeInput");
+      if (ti) ti.focus();
+    }
       }
     }
 
