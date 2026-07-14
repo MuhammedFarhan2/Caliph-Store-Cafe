@@ -1310,10 +1310,16 @@
         if (focusedIdx < 0 || focusedIdx >= items.length) focusedIdx = 0;
         if (items.length > 0) updateFocus();
       }
-      // Auto-scroll to first visible category when filtering
+      // Auto-scroll left panel to first visible category when filtering
       if (f) {
         const firstHeader = studentListItems.querySelector("div");
-        if (firstHeader) firstHeader.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (firstHeader) {
+          const panel = document.querySelector(".left-panel");
+          if (panel) {
+            const top = firstHeader.offsetTop - panel.offsetTop;
+            panel.scrollTop = top;
+          }
+        }
       }
     }
 
@@ -1439,8 +1445,9 @@
         setTimeout(() => {
           const headers = document.querySelectorAll("#studentListItems > div");
           for (const h of headers) {
-            if (h.textContent.trim().toLowerCase() === categoryLabels[cat]?.toLowerCase() || h.textContent.trim().toLowerCase() === cat) {
-              h.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (h.textContent.trim().toLowerCase() === (categoryLabels[cat] || cat).toLowerCase()) {
+              const panel = document.querySelector(".left-panel");
+              if (panel) panel.scrollTop = h.offsetTop - panel.offsetTop;
               break;
             }
           }
