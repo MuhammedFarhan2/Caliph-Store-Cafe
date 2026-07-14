@@ -998,25 +998,17 @@
           const data = doc.data();
           const { routeName, ...rest } = data;
           allData = { ...SEED_DATA, ...rest };
-          // Merge any unsynced localStorage data and push to cloud
-          try {
-            const localRaw = localStorage.getItem("caliph_local_data");
-            if (localRaw) {
-              const localData = JSON.parse(localRaw);
-              if (localData && typeof localData === "object") {
-                allData = { ...allData, ...localData };
-                // Push localStorage data to Firestore directly
-                await getUserDocRef().set({ ...localData, routeName: loadRouteName() }, { merge: true });
-              }
-            }
-          } catch (e) {}
+          // Use Firestore data directly — don't merge localStorage here
+          // (it could overwrite good cloud data with stale local data)
+          if (routeName) saveRouteName(routeName);
           if (routeName) saveRouteName(routeName);
           renderLeftSide();
           if (viewSummary.classList.contains("active")) renderSummary();
           return true;
         } else {
-          // First login — merge localStorage data if any, else seed data
-          allData = loadAllData();
+          // First login — use localStorage data if any (guest data), else seed data
+          const prev = loadAllData();
+          allData = JSON.parse(JSON.stringify(prev));
           await db.collection("users").doc(uid).set({ ...allData, routeName: loadRouteName() }, { merge: true });
           return true;
         }
