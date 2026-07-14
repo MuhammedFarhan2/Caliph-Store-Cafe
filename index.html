@@ -1160,7 +1160,7 @@
           `<tr>
             <td>${row.roll}</td>
             <td>${row.name}</td>
-            <td>${row.amount.toFixed(2)}</td>
+            <td>${currentUser ? row.amount.toFixed(2) : "0.00"}</td>
           </tr>`
         ).join("");
       }
@@ -1178,7 +1178,7 @@
           `<tr>
             <td>${row.roll}</td>
             <td>${row.name}</td>
-            <td>${row.amount.toFixed(2)}</td>
+            <td>${currentUser ? row.amount.toFixed(2) : "0.00"}</td>
           </tr>`
         ).join("");
       }
