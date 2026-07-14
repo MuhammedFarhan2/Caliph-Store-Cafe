@@ -427,6 +427,8 @@
         lockError.textContent = "";
         lockInput.value = "";
         lockInput.blur();
+        const ti = document.getElementById("typeInput");
+        if (ti) ti.focus();
       } else {
         lockError.textContent = "Wrong password";
         lockInput.value = "";
