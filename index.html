@@ -391,6 +391,7 @@
         <!-- Logged in view -->
         <div class="drawer-menu" id="userView" style="display:none">
           <div class="drawer-user" id="userEmail"></div>
+          <button class="drawer-btn" id="syncBtn">Sync Now</button>
           <button class="drawer-btn" id="setRouteBtnMenu">Total</button>
           <button class="drawer-btn logout" id="logoutBtn">Logout</button>
         </div>
@@ -997,23 +998,21 @@
           const data = doc.data();
           const { routeName, ...rest } = data;
           allData = { ...SEED_DATA, ...rest };
-          // Merge any unsynced localStorage data as well
-          let hadLocal = false;
+          // Merge any unsynced localStorage data and push to cloud
           try {
             const localRaw = localStorage.getItem("caliph_local_data");
             if (localRaw) {
               const localData = JSON.parse(localRaw);
               if (localData && typeof localData === "object") {
                 allData = { ...allData, ...localData };
-                hadLocal = true;
               }
             }
           } catch (e) {}
-          if (hadLocal) {
-            // Sync merged data to Firestore so other devices see it
-            try {
-              await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
-            } catch (e) {}
+          // Always push merged data to Firestore to sync all devices
+          try {
+            await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
+          } catch (e) {
+            console.warn("Firestore sync failed", e);
           }
           if (routeName) saveRouteName(routeName);
           renderLeftSide();
@@ -1119,6 +1118,20 @@
     logoutBtn.addEventListener("click", async () => {
       await auth.signOut();
       drawerOverlay.click();
+    });
+
+    document.getElementById("syncBtn").addEventListener("click", async () => {
+      if (!currentUser) return;
+      drawerOverlay.click();
+      try {
+        await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
+        stepIndicator.textContent = "Synced to cloud!";
+      } catch (e) {
+        stepIndicator.textContent = "Sync failed — check Firestore rules";
+      }
+      setTimeout(() => {
+        if (step2Active) stepIndicator.textContent = "Step 1/2: Search for a student";
+      }, 2000);
     });
 
     // --- Set Route opens Summary ---
