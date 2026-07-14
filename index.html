@@ -999,8 +999,6 @@
           const { routeName, ...rest } = data;
           allData = { ...SEED_DATA, ...rest };
           // Use Firestore data directly — don't merge localStorage here
-          // (it could overwrite good cloud data with stale local data)
-          if (routeName) saveRouteName(routeName);
           if (routeName) saveRouteName(routeName);
           renderLeftSide();
           if (viewSummary.classList.contains("active")) renderSummary();
