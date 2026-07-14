@@ -1391,52 +1391,46 @@
       const pageH = doc.internal.pageSize.getHeight();
       const margin = 28;
       const contentW = pageW - margin * 2;
+      const bottomMargin = 40;
+      const rowH = 18, headingGap = 16, headerH = 16, sectionGap = 10, fontSize = 8.5, headerFontSize = 8.5;
 
-      // Estimate total height needed
-      function estimateTotalHeight() {
-        let h = 66;
-        for (const key of categoryOrder) {
-          const data = allData[key] || [];
-          h += 16; // section heading
-          h += 20; // table header
-          h += data.length * 18; // rows
-          h += 10; // gap after section
+      const now = new Date();
+      const dateStr = `${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()}`;
+
+      function addFooter() {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Generated: ${dateStr} | Page ${doc.internal.getNumberOfPages()}`, pageW / 2, pageH - 14, { align: "center" });
+      }
+
+      function checkPageSpace(needed) {
+        if (yPos + needed > pageH - bottomMargin) {
+          addFooter();
+          doc.addPage();
+          yPos = 44;
+          // Re-draw title on new page
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(fontSize + 7);
+          doc.setTextColor(30, 42, 138);
+          doc.text("CALIPH LIFE SCHOOL (cont.)", pageW / 2, 30, { align: "center" });
         }
-        return h;
       }
 
-      let rowH = 18;
-      let headingGap = 16;
-      let headerH = 16;
-      let sectionGap = 10;
-      let fontSize = 8.5;
-      let headerFontSize = 8.5;
-
-      // Auto-compress if content overflows
-      let estimated = estimateTotalHeight();
-      if (estimated > pageH - 12) {
-        const ratio = (pageH - 12) / estimated;
-        rowH = Math.max(14, Math.round(rowH * ratio));
-        headingGap = Math.max(10, Math.round(headingGap * ratio));
-        headerH = Math.max(13, Math.round(headerH * ratio));
-        sectionGap = Math.max(6, Math.round(sectionGap * ratio));
-        fontSize = Math.max(6.5, +(fontSize * ratio).toFixed(1));
-        headerFontSize = Math.max(7, +(headerFontSize * ratio).toFixed(1));
-      }
-
-      // Title (drawn once after compression config)
-      const titleSize = fontSize + 7;
+      // Title
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(titleSize);
+      doc.setFontSize(fontSize + 7);
       doc.setTextColor(30, 42, 138);
       doc.text("CALIPH LIFE SCHOOL", pageW / 2, 36, { align: "center" });
 
       let yPos = 56;
 
-      // Helper: draw a section table
       function drawSection(catKey) {
         const data = allData[catKey] || [];
         const label = categoryLabels[catKey] || catKey.toUpperCase();
+
+        const sectionHeadH = headingGap + headerH + data.length * rowH + sectionGap;
+        checkPageSpace(sectionHeadH);
 
         // Section heading
         doc.setFont("helvetica", "bold");
@@ -1449,13 +1443,10 @@
         const colX = [margin, margin + contentW * 0.35, margin + contentW * 0.7];
         const colW = [contentW * 0.35, contentW * 0.35, contentW * 0.3];
 
-        // Header background
         doc.setFillColor(30, 42, 138);
         doc.roundedRect(margin, yPos - headerH + 4, contentW, headerH, 3, 3, "F");
 
-        // Header text Y offset from top of header rect
         const headerTextY = yPos - headerH + 4 + headerH / 2 + 3;
-
         doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(headerFontSize);
@@ -1467,15 +1458,10 @@
 
         // Rows
         for (let i = 0; i < data.length; i++) {
+          checkPageSpace(rowH);
           const r = data[i];
-          const isEven = i % 2 === 0;
-          if (isEven) {
-            doc.setFillColor(255, 255, 255);
-          } else {
-            doc.setFillColor(245, 246, 250);
-          }
+          doc.setFillColor(i % 2 === 0 ? "#ffffff" : "#f5f6fa");
           doc.rect(margin, yPos - rowH + 4, contentW, rowH, "F");
-
           doc.setDrawColor(220, 220, 220);
           doc.line(margin, yPos + 4, margin + contentW, yPos + 4);
 
@@ -1483,17 +1469,13 @@
           doc.setFont("helvetica", "normal");
           doc.setFontSize(fontSize);
           doc.setTextColor(50, 50, 50);
-
           doc.text(r.roll, colX[0] + 10, rowTextY);
           doc.text(r.name, colX[1] + 10, rowTextY);
-
           doc.setTextColor(30, 42, 138);
           doc.setFont("helvetica", "bold");
           doc.text(`${r.amount.toFixed(2)}`, colX[2] + colW[2] - 10, rowTextY, { align: "right" });
-
           yPos += rowH;
         }
-
         yPos += sectionGap;
       }
 
@@ -1501,13 +1483,23 @@
         drawSection(key);
       }
 
-      // Footer
-      const now = new Date();
-      const dateStr = `${String(now.getDate()).padStart(2,"0")}/${String(now.getMonth()+1).padStart(2,"0")}/${now.getFullYear()}`;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Generated: ${dateStr}`, pageW / 2, pageH - 14, { align: "center" });
+      // Grand total footer
+      let grandTotal = 0;
+      for (const key of categoryOrder) {
+        const data = allData[key] || [];
+        grandTotal += data.reduce((s, r) => s + r.amount, 0);
+      }
+      checkPageSpace(40);
+      doc.setDrawColor(30, 42, 138);
+      doc.line(margin, yPos, margin + contentW, yPos);
+      yPos += 14;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(fontSize + 3);
+      doc.setTextColor(30, 42, 138);
+      doc.text(`Grand Total: ${grandTotal.toFixed(2)}`, pageW / 2, yPos, { align: "center" });
+      yPos += sectionGap;
+
+      addFooter();
 
       const routeName = loadRouteName();
       const prefix = routeName ? routeName.replace(/[^a-zA-Z0-9_-]/g, "_") + "_" : "";
