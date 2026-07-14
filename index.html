@@ -996,15 +996,23 @@
           const { routeName, ...rest } = data;
           allData = { ...SEED_DATA, ...rest };
           // Merge any unsynced localStorage data as well
+          let hadLocal = false;
           try {
             const localRaw = localStorage.getItem("caliph_local_data");
             if (localRaw) {
               const localData = JSON.parse(localRaw);
               if (localData && typeof localData === "object") {
                 allData = { ...allData, ...localData };
+                hadLocal = true;
               }
             }
           } catch (e) {}
+          if (hadLocal) {
+            // Sync merged data to Firestore so other devices see it
+            try {
+              await getUserDocRef().set({ ...allData, routeName: loadRouteName() }, { merge: true });
+            } catch (e) {}
+          }
           if (routeName) saveRouteName(routeName);
           renderLeftSide();
           if (viewSummary.classList.contains("active")) renderSummary();
