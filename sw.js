@@ -1,4 +1,4 @@
-const CACHE = "caliph-v1";
+const CACHE = "caliph-v3";
 const URLS = ["index.html", "manifest.json"];
 
 self.addEventListener("install", (e) => {

@@ -1018,9 +1018,9 @@
           if (viewSummary.classList.contains("active")) renderSummary();
           return true;
         } else {
-          // First login — seed data
-          allData = JSON.parse(JSON.stringify(SEED_DATA));
-          await db.collection("users").doc(uid).set(allData);
+          // First login — merge localStorage data if any, else seed data
+          allData = loadAllData();
+          await db.collection("users").doc(uid).set({ ...allData, routeName: loadRouteName() }, { merge: true });
           return true;
         }
       } catch (e) {
@@ -1194,6 +1194,10 @@
     }
 
     function openAddModal(category) {
+      if (!currentUser) {
+        alert("Sign in to add members — click the account button (top-right).");
+        return;
+      }
       currentCategory = category;
       editingRoll = null;
       addModalTitle.textContent = "Add Member - " + category.toUpperCase();
