@@ -1359,24 +1359,28 @@
           renderLeftSide();
           return;
         }
-        if (!/^-?\d+(\.\d{1,2})?$/.test(val)) {
-          stepIndicator.textContent = "Enter a valid number (amount)";
+        if (!/^-?\d+(\.\d{1,2})?([+-]\d+(\.\d{1,2})?)*$/.test(val)) {
+          stepIndicator.textContent = "Enter amount like 50+30-20";
           return;
         }
         e.stopPropagation();
+        let total = 0;
+        const parts = val.match(/[+-]?\d+(\.\d{1,2})?/g) || [];
+        for (const p of parts) {
+          total += parseFloat(p);
+        }
         const { cat, idx } = selectedStudent;
         const person = allData[cat][idx];
         if (!person) return;
-        const amount = parseFloat(val);
-        person.amount += amount;
+        person.amount += total;
         saveData();
         if (currentCategory === cat) renderData(cat);
         selectedStudent = null;
         step2Active = true;
         typeInput.value = "";
         typeInput.placeholder = "Search name or roll...";
-        const action = val.startsWith("-") ? "subtracted" : "added";
-        const absVal = Math.abs(amount).toFixed(2);
+        const action = total >= 0 ? "added" : "subtracted";
+        const absVal = Math.abs(total).toFixed(2);
         stepIndicator.textContent = `${absVal} ${action}! Enter next amount or search again`;
         renderLeftSide();
         setTimeout(() => {
