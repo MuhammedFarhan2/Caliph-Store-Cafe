@@ -255,7 +255,7 @@
       .main-body { flex-direction: column; }
       .left-panel { width: 100%; height: auto; max-height: 250px; border-right: none; border-bottom: 1px solid #ddd; }
       .right-panel { width: 100%; min-height: 300px; }
-      .account-drawer { width: 40vw; }
+      .account-drawer { width: 25vw; min-width: 240px; }
       .category-grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
@@ -1490,25 +1490,15 @@
         if (yPos + needed > pageH - bottomMargin) {
           addFooter();
           doc.addPage();
-          yPos = 44;
-          // Re-draw title on new page
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(fontSize + 7);
-          doc.setTextColor(30, 42, 138);
-          doc.text("CALIPH LIFE SCHOOL (cont.)", pageW / 2, 30, { align: "center" });
+          yPos = 30;
         }
       }
 
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(fontSize + 7);
-      doc.setTextColor(30, 42, 138);
-      doc.text("CALIPH LIFE SCHOOL", pageW / 2, 36, { align: "center" });
-
-      let yPos = 56;
+      let yPos = 36;
 
       function drawSection(catKey) {
-        const data = allData[catKey] || [];
+        const data = (allData[catKey] || []).filter(r => r.amount !== 0);
+        if (data.length === 0) return;
         const label = categoryLabels[catKey] || catKey.toUpperCase();
 
         const sectionHeadH = headingGap + headerH + data.length * rowH + sectionGap;
