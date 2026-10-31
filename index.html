@@ -441,6 +441,84 @@
       border-top: 2px solid #1a237e;
     }
 
+    /* Student history */
+    .history-name {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 12px;
+    }
+
+    .history-name b {
+      color: #1a237e;
+    }
+
+    .history-stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .history-stat {
+      flex: 1;
+      min-width: 120px;
+      background: #f5f6fa;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .history-stat .k {
+      font-size: 11px;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .history-stat .v {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a237e;
+      margin-top: 4px;
+    }
+
+    .history-stat .v.neg {
+      color: #c62828;
+    }
+
+    .history-table td.pos {
+      color: #2e7d32;
+      font-weight: 600;
+    }
+
+    .history-table td.neg {
+      color: #c62828;
+      font-weight: 600;
+    }
+
+    .history-table .empty {
+      text-align: center;
+      color: #888;
+      padding: 30px;
+    }
+
+    .history-problem {
+      color: #c62828;
+      background: #fdecea;
+      border: 1px solid #f5c6cb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .history-table tr.badrow td,
+    .history-table td.bad {
+      color: #c62828;
+      font-weight: 700;
+    }
+
     /* Add member modal */
     .add-modal-overlay {
       position: fixed;
@@ -848,7 +926,7 @@
 </head>
 
 <body>
-  <div id="storageWarning" style="display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#b00020;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.3);max-width:90%;text-align:center;"></div>
+  <div id="storageWarning" style="display:none;position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#fdecea;color:#c62828;border:1px solid #f5c6cb;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:90%;text-align:center;"></div>
 
   <!-- Lock Screen -->
   <div class="lock-overlay" id="lockOverlay">
@@ -984,6 +1062,19 @@
               <tbody id="summaryBody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- Student History View -->
+      <div class="view-section" id="viewHistory">
+        <div class="summary-wrap">
+          <div class="summary-top">
+            <div class="left">
+              <button class="back-btn" id="backFromHistory">&larr; Back</button>
+              <div class="summary-title">History</div>
+            </div>
+          </div>
+          <div class="summary-table-wrap" id="historyContent"></div>
         </div>
       </div>
       <div class="drawer-overlay" id="drawerOverlay"></div>
@@ -1528,15 +1619,33 @@
     }
 
     let storageWarnTimer = null;
-    function storageError(msg) {
+    let storageFull = false;
+
+    function showProblem(msg, persistent) {
       console.error(msg);
       try {
         const el = document.getElementById("storageWarning");
         if (!el) return;
-        el.textContent = msg;
+        el.textContent = "⚠ " + msg;
         el.style.display = "block";
         clearTimeout(storageWarnTimer);
-        storageWarnTimer = setTimeout(() => { el.style.display = "none"; }, 8000);
+        if (!persistent) {
+          storageWarnTimer = setTimeout(() => { el.style.display = "none"; }, 12000);
+        }
+      } catch (e) { }
+    }
+
+    function storageError(msg) {
+      storageFull = true;
+      showProblem(msg, true);
+    }
+
+    function clearStorageError() {
+      if (!storageFull) return;
+      storageFull = false;
+      try {
+        const el = document.getElementById("storageWarning");
+        if (el) el.style.display = "none";
       } catch (e) { }
     }
 
@@ -1745,9 +1854,34 @@
       return db.collection("users").doc(currentUser.uid);
     }
 
+    function estimateStorageBytes() {
+      try {
+        let total = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          const v = localStorage.getItem(k) || "";
+          total += (k.length + v.length) * 2;
+        }
+        return total;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function checkStorageUsage() {
+      const used = estimateStorageBytes();
+      const limit = 5 * 1024 * 1024;
+      if (used >= limit * 0.95) {
+        storageFull = true;
+        showProblem(`Local storage is almost full (${Math.round(used / 1024)} KB used). Sync to cloud and remove old data.`, true);
+      }
+    }
+
     function persistData() {
       try {
         localStorage.setItem(scopedKey(DATA_BASE), JSON.stringify(allData));
+        clearStorageError();
+        checkStorageUsage();
         return true;
       } catch (e) {
         storageError("Warning: local save failed (storage full?). Keep the app open and sync to cloud.");
@@ -1759,7 +1893,9 @@
       try {
         if (on) localStorage.setItem(scopedKey(SYNC_BASE), "1");
         else localStorage.removeItem(scopedKey(SYNC_BASE));
-      } catch (e) { }
+      } catch (e) {
+        storageError("Warning: could not update the sync flag (storage full?).");
+      }
     }
 
     function isPendingSync() {
@@ -1783,6 +1919,7 @@
         })
         .catch((e) => {
           console.warn("Firestore save failed — kept locally, will retry when online", e);
+          showProblem("Cloud sync failed — changes are saved on this device only. Check internet / Firestore rules.");
         });
     }
 
@@ -1826,6 +1963,7 @@
         }
       } catch (e) {
         console.warn("Firestore load failed, using local data", e);
+        showProblem("Could not load cloud data — showing this device's saved data. Check internet / Firestore rules.");
         allData = loadAllData();
         resetCategories(loadCustomCategories());
         renderLeftSide();
@@ -2081,6 +2219,7 @@
 
     renderCategoryGrid();
     renderLeftSide();
+    checkStorageUsage();
 
     // Always start in step 1 (search mode) and clear input
     typeInput.value = "";
@@ -2283,7 +2422,7 @@
       focusedIdx = -1;
       typeInput.value = "";
       typeInput.placeholder = "Enter amount for " + person.name + "...";
-      stepIndicator.textContent = "Step 2/2: Enter amount, then press Enter";
+      stepIndicator.textContent = "Step 2/2: Enter amount, then press Enter · Ctrl+H for history";
       renderLeftSide();
       typeInput.focus();
     });
@@ -2379,7 +2518,9 @@
         const { cat, idx } = selectedStudent;
         const person = allData[cat][idx];
         if (!person) return;
-        person.amount += total;
+        person.amount = Number(person.amount || 0) + total;
+        if (!Array.isArray(person.history)) person.history = [];
+        person.history.push({ at: new Date().toISOString(), change: total, balance: person.amount, input: val });
         saveData();
         if (currentCategory === cat) renderData(cat);
         selectedStudent = null;
@@ -2396,6 +2537,105 @@
       }
     });
 
+
+    // --- Student history page (Ctrl+H) ---
+    function getHistoryTarget() {
+      if (selectedStudent) {
+        const p = allData[selectedStudent.cat] ? allData[selectedStudent.cat][selectedStudent.idx] : null;
+        if (p) return { cat: selectedStudent.cat, person: p };
+      }
+      const items = getVisibleItems();
+      const el = items[focusedIdx] || items[0];
+      if (el) {
+        const cat = el.dataset.cat;
+        const idx = parseInt(el.dataset.idx, 10);
+        const p = allData[cat] ? allData[cat][idx] : null;
+        if (p) return { cat, person: p };
+      }
+      return null;
+    }
+
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "-";
+      return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    }
+
+    function fmtTime(iso) {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "-";
+      const ampm = d.getHours() >= 12 ? "PM" : "AM";
+      let h = d.getHours() % 12;
+      if (h === 0) h = 12;
+      return `${String(h).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")} ${ampm}`;
+    }
+
+    function renderHistory() {
+      const target = getHistoryTarget();
+      if (!target) {
+        stepIndicator.textContent = "Select a student first, then press Ctrl+H";
+        return;
+      }
+      const { cat, person } = target;
+      const label = categoryLabels[cat] || cat.toUpperCase();
+      const problems = [];
+      const rawHist = Array.isArray(person.history) ? person.history : [];
+      const hist = rawHist.filter((h) => h && typeof h === "object");
+      if (rawHist.length !== hist.length) problems.push("Some history entries are invalid and were skipped.");
+      hist.sort((a, b) => new Date(a.at) - new Date(b.at));
+
+      let paid = 0;
+      let deducted = 0;
+      if (storageFull) problems.push("Local storage is full — recent changes may not be saved. Sync to cloud and free space.");
+      if (isPendingSync()) problems.push("Changes not yet synced to cloud — saved on this device only.");
+      if (isNaN(Number(person.amount))) problems.push("This student's balance is not a valid number.");
+      if (!Array.isArray(person.history) && Number(person.amount || 0) !== 0) problems.push("No history for the existing balance (recorded before history tracking started).");
+
+      const rowsHtml = hist.length
+        ? hist.map((h) => {
+            const change = Number(h.change);
+            const balance = Number(h.balance);
+            const bad = isNaN(new Date(h.at).getTime()) || isNaN(change) || isNaN(balance);
+            if (!isNaN(change)) {
+              if (change >= 0) paid += change;
+              else deducted += Math.abs(change);
+            }
+            const cls = !isNaN(change) && change < 0 ? "neg" : "pos";
+            const sign = !isNaN(change) && change >= 0 ? "+" : "";
+            const changeText = isNaN(change) ? "INVALID" : `${sign}${change.toFixed(2)}`;
+            const balanceText = isNaN(balance) ? "INVALID" : balance.toFixed(2);
+            return `<tr${bad ? ' class="badrow"' : ""}><td>${fmtDate(h.at)}</td><td>${fmtTime(h.at)}</td><td class="${bad ? "bad" : cls}">${changeText}</td><td class="${bad ? "bad" : ""}">${balanceText}</td></tr>`;
+          }).join("")
+        : `<tr><td colspan="4" class="empty">No entries recorded yet. History is recorded from this update onwards.</td></tr>`;
+
+      const problemHtml = problems.length
+        ? `<div class="history-problem">${problems.map((p) => "⚠ " + escapeHtml(p)).join("<br>")}</div>`
+        : "";
+
+      const content = document.getElementById("historyContent");
+      content.innerHTML = `
+        ${problemHtml}
+        <div class="history-name"><b>${escapeHtml(person.name)}</b> · ${escapeHtml(label)} · Roll ${escapeHtml(person.roll)}</div>
+        <div class="history-stats">
+          <div class="history-stat"><div class="k">Current Balance</div><div class="v">${Number(person.amount || 0).toFixed(2)}</div></div>
+          <div class="history-stat"><div class="k">Total Paid</div><div class="v">${paid.toFixed(2)}</div></div>
+          <div class="history-stat"><div class="k">Total Deducted</div><div class="v neg">${deducted.toFixed(2)}</div></div>
+        </div>
+        <table class="summary-table history-table">
+          <thead><tr><th>Date</th><th>Time</th><th>Amount</th><th>Balance</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+      showView("viewHistory");
+    }
+
+    document.getElementById("backFromHistory").addEventListener("click", handleBack);
+
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        renderHistory();
+      }
+    });
 
     function handleBack() {
       if (viewHistory.length > 1) {
