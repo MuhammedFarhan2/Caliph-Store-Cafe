@@ -1,4 +1,4 @@
-const CACHE = "caliph-v5";
+const CACHE = "caliph-v6";
 const APP_SHELL = ["./", "index.html", "manifest.json"];
 const OFFLINE_LIBS = [
   "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js",

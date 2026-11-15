@@ -655,6 +655,23 @@
       font-weight: 600;
     }
 
+    .account-drawer .drawer-status {
+      font-size: 12px;
+      color: #555;
+      background: #f5f6fa;
+      border-radius: 6px;
+      padding: 8px;
+      margin: 0 0 8px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .account-drawer label.drawer-btn {
+      display: block;
+      box-sizing: border-box;
+      text-align: left;
+    }
+
     .drawer-auth input {
       width: 100%;
       padding: 8px 10px;
@@ -1093,8 +1110,13 @@
         <!-- Logged in view -->
         <div class="drawer-menu" id="userView" style="display:none">
           <div class="drawer-user" id="userEmail"></div>
+          <div class="drawer-status" id="syncStatus">This device: loading…</div>
           <button class="drawer-btn" id="syncBtn">Sync Now</button>
           <button class="drawer-btn" id="setRouteBtnMenu">Total</button>
+          <button class="drawer-btn" id="downloadBackupBtn">Download Backup</button>
+          <label class="drawer-btn" for="restoreBackupFile">Restore Backup</label>
+          <input type="file" id="restoreBackupFile" accept="application/json,.json" style="display:none" />
+          <button class="drawer-btn" id="restoreLatestBackupBtn">Restore Latest Backup</button>
           <button class="drawer-btn logout" id="logoutBtn">Logout</button>
         </div>
       </div>
@@ -1611,6 +1633,9 @@
     const LEGACY_ROUTE_KEY = ROUTE_BASE;
     const LEGACY_CATS_KEY = CATS_BASE;
     const LEGACY_OWNER_KEY = "caliph_legacy_owner";
+    const UPDATED_BASE = "caliph_updated_at";
+    const BACKUP_BASE = "caliph_backup";
+    const MAX_LOCAL_BACKUPS = 7;
 
     let currentUser = null;
 
@@ -1902,20 +1927,133 @@
       try { return localStorage.getItem(scopedKey(SYNC_BASE)) === "1"; } catch (e) { return false; }
     }
 
+    function dataTotal(data) {
+      let total = 0;
+      if (!data || typeof data !== "object") return 0;
+      for (const key of Object.keys(data)) {
+        if (key === "customCategories" || key === "routeName" || key === "updatedAt") continue;
+        const rows = data[key];
+        if (!Array.isArray(rows)) continue;
+        for (const row of rows) {
+          const amount = Number(row && row.amount);
+          if (Number.isFinite(amount)) total += amount;
+        }
+      }
+      return Math.round(total * 100) / 100;
+    }
+
+    function loadLocalUpdated() {
+      try { return Number(localStorage.getItem(scopedKey(UPDATED_BASE)) || 0) || 0; }
+      catch (e) { return 0; }
+    }
+
+    function saveLocalUpdated(timestamp) {
+      try { localStorage.setItem(scopedKey(UPDATED_BASE), String(timestamp || Date.now())); }
+      catch (e) { }
+    }
+
+    // Never let a save or a cloud load destroy the copy that was already on this
+    // device. A dated backup is kept for each of the last 7 days.
+    function backupLocalData(reason, fixedKey) {
+      try {
+        const raw = localStorage.getItem(scopedKey(DATA_BASE));
+        if (!raw) return;
+        const day = new Date().toISOString().slice(0, 10);
+        const key = scopedKey(BACKUP_BASE) + "_" + (fixedKey || day);
+        if (!fixedKey && localStorage.getItem(key)) return;
+        localStorage.setItem(key, JSON.stringify({
+          savedAt: Date.now(),
+          reason: reason || "auto",
+          updatedAt: loadLocalUpdated(),
+          routeName: loadRouteName(),
+          customCategories,
+          data: JSON.parse(raw)
+        }));
+        pruneLocalBackups();
+      } catch (e) {
+        console.warn("Local backup skipped (storage full?)", e);
+      }
+    }
+
+    function pruneLocalBackups() {
+      try {
+        const prefix = scopedKey(BACKUP_BASE) + "_";
+        const dated = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || key.indexOf(prefix) !== 0) continue;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(key.slice(prefix.length))) dated.push(key);
+        }
+        dated.sort();
+        while (dated.length > MAX_LOCAL_BACKUPS) localStorage.removeItem(dated.shift());
+      } catch (e) { }
+    }
+
+    function readLocalBackups() {
+      const backups = [];
+      try {
+        const prefix = scopedKey(BACKUP_BASE) + "_";
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || key.indexOf(prefix) !== 0) continue;
+          try {
+            const parsed = JSON.parse(localStorage.getItem(key));
+            if (parsed && parsed.data) backups.push({ key, ...parsed, total: dataTotal(parsed.data) });
+          } catch (e) { }
+        }
+      } catch (e) { }
+      return backups;
+    }
+
+    // Newest timestamp wins. For data created before timestamps existed, the
+    // larger total wins so a stale 51,753 cloud copy cannot replace 63,974.
+    function decideDataSource(localData, cloudData) {
+      if (!localStorage.getItem(scopedKey(DATA_BASE))) return "cloud";
+      const localUpdated = loadLocalUpdated();
+      const cloudUpdated = Number(cloudData && cloudData.updatedAt) || 0;
+      if (localUpdated > cloudUpdated) return "local";
+      if (cloudUpdated > localUpdated) return "cloud";
+      const localTotal = dataTotal(localData);
+      const cloudTotal = dataTotal(cloudData);
+      if (localTotal !== cloudTotal) return localTotal > cloudTotal ? "local" : "cloud";
+      return "local";
+    }
+
+    let lastCloudTotal = null;
+    let lastCloudAt = 0;
+    let lastCloudKnown = false;
+
+    function updateSyncStatus() {
+      const el = document.getElementById("syncStatus");
+      if (!el) return;
+      const parts = [`This device: ${dataTotal(allData).toFixed(2)}`];
+      if (lastCloudKnown && lastCloudTotal !== null) parts.push(`Cloud: ${lastCloudTotal.toFixed(2)}`);
+      if (lastCloudAt) parts.push(`Last sync: ${new Date(lastCloudAt).toLocaleTimeString()}`);
+      if (isPendingSync()) parts.push("Unsynced changes");
+      el.textContent = parts.join(" · ");
+    }
+
     // Guard so an older save finishing late cannot clear the pending flag while
     // a newer save is still unsynced.
     let saveSeq = 0;
     let savedSeq = 0;
 
-    function syncToCloud() {
+    function syncToCloud(timestamp) {
       if (!currentUser) return;
       const seq = ++saveSeq;
+      const updatedAt = Number(timestamp) || loadLocalUpdated() || Date.now();
+      saveLocalUpdated(updatedAt);
       setPendingSync(true);
+      updateSyncStatus();
       getUserDocRef()
-        .set({ ...allData, routeName: loadRouteName(), customCategories }, { merge: true })
+        .set({ ...allData, routeName: loadRouteName(), customCategories, updatedAt }, { merge: true })
         .then(() => {
           if (seq > savedSeq) savedSeq = seq;
           if (savedSeq >= saveSeq) setPendingSync(false);
+          lastCloudTotal = dataTotal(allData);
+          lastCloudAt = Date.now();
+          lastCloudKnown = true;
+          updateSyncStatus();
         })
         .catch((e) => {
           console.warn("Firestore save failed — kept locally, will retry when online", e);
@@ -1924,9 +2062,14 @@
     }
 
     function saveData() {
-      // Always save locally FIRST so data is never lost when offline.
+      // Keep a dated local snapshot before changing anything, then save locally
+      // FIRST so data is never lost when offline.
+      backupLocalData("before-save");
+      const now = Date.now();
+      saveLocalUpdated(now);
       persistData();
-      syncToCloud();
+      syncToCloud(now);
+      updateSyncStatus();
       if (viewSummary.classList.contains("active")) renderSummary();
     }
 
@@ -1935,20 +2078,48 @@
         const doc = await db.collection("users").doc(uid).get();
         if (doc.exists) {
           const data = doc.data();
-          if (isPendingSync()) {
-            // Local data has unsynced changes made offline — keep them and push up.
-            allData = loadAllData();
+          const { routeName, customCategories: savedCats, updatedAt: cloudUpdatedAt, ...cloudRest } = data;
+          const cloudUpdated = Number(cloudUpdatedAt) || 0;
+          const cloudTotal = dataTotal(cloudRest);
+          const localData = loadAllData();
+          const source = decideDataSource(localData, { ...cloudRest, updatedAt: cloudUpdated });
+
+          if (source === "local") {
+            // This device has newer (or at least not older) data. Keep it.
+            backupLocalData("before-cloud-push", "precloud");
+            // Also keep the cloud copy we are about to replace, just in case.
+            try {
+              localStorage.setItem(scopedKey(BACKUP_BASE) + "_cloud", JSON.stringify({
+                savedAt: Date.now(),
+                reason: "cloud-before-overwrite",
+                updatedAt: cloudUpdated,
+                data: cloudRest
+              }));
+            } catch (e) { }
+            allData = localData;
             resetCategories(loadCustomCategories());
-            syncToCloud();
+            const now = Date.now();
+            saveLocalUpdated(now);
+            setPendingSync(true);
+            lastCloudTotal = cloudTotal;
+            lastCloudKnown = true;
+            syncToCloud(now);
           } else {
-            const { routeName, customCategories: savedCats, ...rest } = data;
-            allData = { ...SEED_DATA, ...rest };
+            // Cloud is newer: back up this device's copy first, then load cloud.
+            backupLocalData("before-cloud-load", "precloud");
+            allData = { ...SEED_DATA, ...cloudRest };
             resetCategories(Array.isArray(savedCats) ? savedCats : loadCustomCategories());
             if (routeName) saveRouteName(routeName);
+            saveLocalUpdated(cloudUpdated || Date.now());
             persistData();
+            setPendingSync(false);
+            lastCloudTotal = cloudTotal;
+            lastCloudAt = Date.now();
+            lastCloudKnown = true;
           }
           renderLeftSide();
           renderCategoryGrid();
+          updateSyncStatus();
           if (viewSummary.classList.contains("active")) renderSummary();
           return true;
         } else {
@@ -1956,9 +2127,16 @@
           const prev = loadAllData();
           allData = JSON.parse(JSON.stringify(prev));
           resetCategories(loadCustomCategories());
+          const now = Date.now();
+          saveLocalUpdated(now);
           persistData();
-          await db.collection("users").doc(uid).set({ ...allData, routeName: loadRouteName(), customCategories }, { merge: true });
+          setPendingSync(true);
+          lastCloudTotal = dataTotal(allData);
+          lastCloudAt = now;
+          lastCloudKnown = true;
+          await db.collection("users").doc(uid).set({ ...allData, routeName: loadRouteName(), customCategories, updatedAt: now }, { merge: true });
           setPendingSync(false);
+          updateSyncStatus();
           return true;
         }
       } catch (e) {
@@ -1966,6 +2144,8 @@
         showProblem("Could not load cloud data — showing this device's saved data. Check internet / Firestore rules.");
         allData = loadAllData();
         resetCategories(loadCustomCategories());
+        lastCloudKnown = false;
+        updateSyncStatus();
         renderLeftSide();
         renderCategoryGrid();
         return false;
@@ -2017,11 +2197,14 @@
         currentUser = null;
         saveSeq = 0;
         savedSeq = 0;
+        lastCloudKnown = false;
+        lastCloudAt = 0;
         showAuthView();
-        allData = loadAllData();
-        resetCategories(loadCustomCategories());
+        // Keep the last signed-in user's data on screen instead of showing seed
+        // data. It remains saved under that user's local storage key.
         renderLeftSide();
         renderCategoryGrid();
+        updateSyncStatus();
       }
     });
 
@@ -2072,6 +2255,38 @@
       if (!localRaw) { stepIndicator.textContent = "No local data found to sync"; return; }
       try {
         const localData = JSON.parse(localRaw);
+        const cloudDoc = await getUserDocRef().get();
+        if (cloudDoc.exists) {
+          const cloud = cloudDoc.data();
+          const cloudUpdated = Number(cloud.updatedAt) || 0;
+          const localUpdated = loadLocalUpdated();
+          if (cloudUpdated > localUpdated) {
+            const pull = confirm(
+              "The cloud copy was saved later than this device.\n\n" +
+              "OK = load the newer cloud copy (recommended)\n" +
+              "Cancel = keep this device and overwrite the cloud copy"
+            );
+            if (pull) {
+              const { routeName, customCategories: savedCats, updatedAt: _u, ...rest } = cloud;
+              backupLocalData("before-syncnow-pull", "presyncnow");
+              allData = { ...SEED_DATA, ...rest };
+              resetCategories(Array.isArray(savedCats) ? savedCats : loadCustomCategories());
+              if (routeName) saveRouteName(routeName);
+              saveLocalUpdated(cloudUpdated || Date.now());
+              persistData();
+              setPendingSync(false);
+              lastCloudTotal = dataTotal(rest);
+              lastCloudAt = Date.now();
+              lastCloudKnown = true;
+              renderLeftSide();
+              renderCategoryGrid();
+              if (viewSummary.classList.contains("active")) renderSummary();
+              stepIndicator.textContent = "Loaded the newer cloud copy.";
+              updateSyncStatus();
+              return;
+            }
+          }
+        }
         let totalStudents = 0;
         let sample = "";
         for (const key of Object.keys(localData)) {
@@ -2082,7 +2297,14 @@
             }
           }
         }
-        await getUserDocRef().set({ ...localData, routeName: loadRouteName(), customCategories }, { merge: true });
+        const now = Date.now();
+        saveLocalUpdated(now);
+        await getUserDocRef().set({ ...localData, routeName: loadRouteName(), customCategories, updatedAt: now }, { merge: true });
+        setPendingSync(false);
+        lastCloudTotal = dataTotal(localData);
+        lastCloudAt = now;
+        lastCloudKnown = true;
+        updateSyncStatus();
         stepIndicator.textContent = sample
           ? `Synced ${totalStudents} students! Sample: ${sample}`
           : `Synced ${totalStudents} students (all amounts are 0)`;
@@ -2092,6 +2314,80 @@
       setTimeout(() => {
         if (step2Active) stepIndicator.textContent = "Step 1/2: Search for a student · Ctrl+M for classes";
       }, 4000);
+    });
+
+    document.getElementById("downloadBackupBtn").addEventListener("click", () => {
+      try {
+        const payload = {
+          app: "caliph-store-cafe",
+          savedAt: new Date().toISOString(),
+          updatedAt: loadLocalUpdated() || Date.now(),
+          total: dataTotal(allData),
+          routeName: loadRouteName(),
+          customCategories,
+          data: allData
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `caliph-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) {
+        alert("Could not create the backup file: " + e.message);
+      }
+    });
+
+    function restoreDataFromBackup(parsed, label) {
+      const data = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+      if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("This is not a Caliph backup file.");
+      const total = dataTotal(data);
+      if (!confirm(`Restore ${label}?\n\nThis will replace the data on this device with the backup (total ${total.toFixed(2)}).\nThe current data will be saved as a local backup first.`)) return;
+      backupLocalData("before-restore", "prerestore");
+      allData = { ...SEED_DATA, ...data };
+      if (Array.isArray(parsed.customCategories)) resetCategories(parsed.customCategories);
+      if (parsed.routeName) saveRouteName(parsed.routeName);
+      const now = Date.now();
+      saveLocalUpdated(now);
+      persistData();
+      setPendingSync(true);
+      renderLeftSide();
+      renderCategoryGrid();
+      if (viewSummary.classList.contains("active")) renderSummary();
+      syncToCloud(now);
+      updateSyncStatus();
+      alert("Backup restored. It will sync to the cloud now.");
+    }
+
+    document.getElementById("restoreBackupFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        restoreDataFromBackup(JSON.parse(text), file.name);
+      } catch (err) {
+        alert("Could not restore: " + err.message);
+      }
+      e.target.value = "";
+    });
+
+    document.getElementById("restoreLatestBackupBtn").addEventListener("click", () => {
+      const backups = readLocalBackups();
+      if (!backups.length) { alert("No local backups found on this device."); return; }
+      backups.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+      const latest = backups[0];
+      if (!confirm(`Restore the latest local backup from ${new Date(latest.savedAt).toLocaleString()} (total ${latest.total.toFixed(2)})?`)) return;
+      try {
+        restoreDataFromBackup(
+          { data: latest.data, updatedAt: latest.updatedAt, routeName: latest.routeName, customCategories: latest.customCategories },
+          "the latest local backup"
+        );
+      } catch (e) {
+        alert("Could not restore: " + e.message);
+      }
     });
 
     // --- Set Route opens Summary ---
@@ -2123,6 +2419,7 @@
     accountBtn.addEventListener("click", () => {
       accountDrawer.classList.toggle("open");
       drawerOverlay.classList.toggle("show");
+      updateSyncStatus();
     });
 
     drawerOverlay.addEventListener("click", () => {
